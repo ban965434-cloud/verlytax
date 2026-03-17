@@ -72,7 +72,7 @@ Fee always calculated on **gross revenue first** — before factoring discount.
 
 ## Security
 
-This repo is **private**. All system prompts, Iron Rules, and agent configurations are proprietary to Verlytax Operations.
+This repo is **public**. All system prompts, Iron Rules, and agent configurations are proprietary to Verlytax Operations.
 
 - Never share API keys in this repo
 - Never commit verlytax.db
