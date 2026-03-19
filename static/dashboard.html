@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Verlytax OS v4 — Operations Dashboard</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --card: #13131a;
+      --border: #1e1e2e;
+      --accent: #6c63ff;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.05em; }
+    header h1 span { color: var(--accent); }
+    .badge { background: var(--green); color: #000; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; text-transform: uppercase; }
+
+    main { padding: 32px; max-width: 1200px; margin: 0 auto; }
+
+    .tagline { color: var(--muted); font-size: 0.9rem; margin-bottom: 32px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .stat-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .stat-card .value { font-size: 2rem; font-weight: 700; }
+    .stat-card .value.green { color: var(--green); }
+    .stat-card .value.yellow { color: var(--yellow); }
+    .stat-card .value.red { color: var(--red); }
+    .stat-card .sub { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .section { margin-bottom: 40px; }
+
+    .iron-rules {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .iron-rules table { width: 100%; border-collapse: collapse; }
+    .iron-rules th { background: #1a1a2e; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; padding: 12px 16px; text-align: left; }
+    .iron-rules td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.85rem; }
+    .iron-rules td:first-child { color: var(--accent); font-weight: 700; width: 40px; }
+    .pass { color: var(--green); font-size: 0.75rem; font-weight: 700; }
+    .fail { color: var(--red); font-size: 0.75rem; font-weight: 700; }
+
+    .agent-stack {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .agent-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .agent-card .agent-name { font-weight: 700; margin-bottom: 4px; }
+    .agent-card .agent-role { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .status-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.shadow { background: var(--yellow); }
+
+    .rpm-tiers {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .rpm-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+    .rpm-row:last-child { border-bottom: none; }
+    .rpm-label { color: var(--muted); }
+    .rpm-value { font-weight: 700; }
+
+    .fee-table { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .fee-table table { width: 100%; border-collapse: collapse; }
+    .fee-table th { background: #1a1a2e; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; padding: 12px 16px; text-align: left; }
+    .fee-table td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.85rem; }
+
+    .chat-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .chat-messages { padding: 20px; min-height: 150px; max-height: 300px; overflow-y: auto; }
+    .chat-msg { margin-bottom: 12px; font-size: 0.85rem; }
+    .chat-msg .who { font-weight: 700; margin-right: 6px; }
+    .chat-msg .who.erin { color: var(--accent); }
+    .chat-msg .who.user { color: var(--green); }
+    .chat-msg .who.system { color: var(--muted); }
+    .chat-input-row { display: flex; border-top: 1px solid var(--border); }
+    .chat-input-row input {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); padding: 14px 16px; font-size: 0.85rem;
+    }
+    .chat-input-row button {
+      background: var(--accent); border: none; color: #fff;
+      padding: 14px 20px; cursor: pointer; font-weight: 700; font-size: 0.85rem;
+    }
+    .chat-input-row button:hover { opacity: 0.9; }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.75rem; padding: 32px; border-top: 1px solid var(--border); margin-top: 40px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1><span>VERLYTAX</span> OS v4</h1>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <span class="badge">Phase 1 USA Active</span>
+    <span style="font-size:0.8rem;color:var(--muted)" id="clock"></span>
+  </div>
+</header>
+
+<main>
+  <p class="tagline">"You drive. We handle the rest." — AI-Native Freight Dispatch | CEO: Delta</p>
+
+  <!-- Stats -->
+  <div class="grid" id="stats-grid">
+    <div class="stat-card">
+      <div class="label">Active Carriers</div>
+      <div class="value green" id="stat-active">—</div>
+      <div class="sub">Phase 1 USA goal: 30–50</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Loads In Transit</div>
+      <div class="value yellow" id="stat-transit">—</div>
+      <div class="sub">Check in every 2–4 hrs</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Fees Collected (MTD)</div>
+      <div class="value green" id="stat-fees">—</div>
+      <div class="sub">Gross first, always</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Open Escalations</div>
+      <div class="value red" id="stat-esc">—</div>
+      <div class="sub">48hr auto-escalate to Delta</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Min RPM</div>
+      <div class="value" style="color:var(--accent)">$2.51</div>
+      <div class="sub">Iron Rule 2 — hard floor</div>
+    </div>
+  </div>
+
+  <!-- Agent Stack -->
+  <div class="section">
+    <h2>Agent Stack</h2>
+    <div class="agent-stack">
+      <div class="agent-card">
+        <div class="agent-name"><span class="status-dot active"></span>Erin</div>
+        <div class="agent-role">AI Dispatcher</div>
+        <div style="font-size:0.78rem;color:var(--muted)">Load booking · Carrier comms · Billing · Disputes</div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name"><span class="status-dot active"></span>Nova</div>
+        <div class="agent-role">Executive Assistant</div>
+        <div style="font-size:0.78rem;color:var(--muted)">Delta SMS · Escalations · Day 1 carrier packet · Fee alerts</div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name"><span class="status-dot active"></span>Brain</div>
+        <div class="agent-role">CTO / Master Engine</div>
+        <div style="font-size:0.78rem;color:var(--muted)">FMCSA queries · Compliance · DB reads/writes · Scheduler</div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name"><span class="status-dot shadow"></span>CEO Agent</div>
+        <div class="agent-role">Shadow Mode</div>
+        <div style="font-size:0.78rem;color:var(--muted)">Learning Delta's decisions — not yet autonomous</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RPM Tiers + Fee Structure side by side -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:40px;" class="two-col">
+    <div class="section" style="margin:0">
+      <h2>RPM Tiers</h2>
+      <div class="rpm-tiers">
+        <div class="rpm-row">
+          <span class="rpm-label">Below $2.51</span>
+          <span class="rpm-value" style="color:var(--red)">HARD REJECT</span>
+        </div>
+        <div class="rpm-row">
+          <span class="rpm-label">$2.51 – $2.74</span>
+          <span class="rpm-value" style="color:var(--yellow)">COUNTER REQUIRED</span>
+        </div>
+        <div class="rpm-row">
+          <span class="rpm-label">$2.75 – $2.99</span>
+          <span class="rpm-value" style="color:var(--green)">ACCEPTABLE</span>
+        </div>
+        <div class="rpm-row">
+          <span class="rpm-label">$3.00+</span>
+          <span class="rpm-value" style="color:var(--accent)">EXCELLENT — PRIORITIZE</span>
+        </div>
+      </div>
+    </div>
+    <div class="section" style="margin:0">
+      <h2>Fee Structure</h2>
+      <div class="fee-table">
+        <table>
+          <thead><tr><th>Period</th><th>Fee</th></tr></thead>
+          <tbody>
+            <tr><td>Trial (Days 1–7)</td><td style="color:var(--green)">FREE</td></tr>
+            <tr><td>Months 1–4</td><td>8% of gross</td></tr>
+            <tr><td>Month 5+ (new)</td><td>10% of gross</td></tr>
+            <tr><td>Month 5+ (OG)</td><td style="color:var(--green)">8% for life</td></tr>
+            <tr><td>Extra services</td><td>+10% on base</td></tr>
+            <tr><td>Minimum weekly</td><td>$100 USD</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Iron Rules -->
+  <div class="section">
+    <h2>Iron Rules — 11 Non-Negotiables</h2>
+    <div class="iron-rules">
+      <table>
+        <thead><tr><th>#</th><th>Rule</th><th>Trigger</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>NO FLORIDA LOADS — ever, pickup or delivery</td><td class="fail">AUTO REJECT</td></tr>
+          <tr><td>2</td><td>MIN RPM $2.51 — hard floor, never counter below</td><td class="fail">AUTO REJECT</td></tr>
+          <tr><td>3</td><td>MAX DEADHEAD 50 miles / 25%</td><td class="fail">AUTO REJECT</td></tr>
+          <tr><td>4</td><td>MAX WEIGHT 48,000 lbs</td><td class="fail">AUTO REJECT</td></tr>
+          <tr><td>5</td><td>NO UNSATISFACTORY / CONDITIONAL safety ratings</td><td class="fail">AUTO REJECT</td></tr>
+          <tr><td>6</td><td>AUTHORITY AGE 180+ DAYS minimum</td><td class="fail">AUTO REJECT</td></tr>
+          <tr><td>7</td><td>FAILED FMCSA CLEARINGHOUSE → log block immediately</td><td class="fail">AUTO REJECT</td></tr>
+          <tr><td>8</td><td>BLOCKED BROKER in memory_brokers → never rebook</td><td class="fail">AUTO REJECT</td></tr>
+          <tr><td>9</td><td>NDS ENROLLMENT before Day 1 load ($100/yr, carrier pays)</td><td class="fail">AUTO REJECT</td></tr>
+          <tr><td>10</td><td>AUTHORITY AGE VERIFIED via live FMCSA portal check</td><td class="fail">REQUIRED</td></tr>
+          <tr><td>11</td><td>NEVER RELEASE BOL before delivery confirmed</td><td class="fail">BLOCKED</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Erin Chat -->
+  <div class="section">
+    <h2>Ask Erin — AI Dispatcher</h2>
+    <div class="chat-box">
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-msg"><span class="who system">[System]</span>Verlytax OS v4 online. Erin is ready.</div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask Erin anything about loads, carriers, compliance..." />
+        <button onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>Verlytax OS v4 · CEO: Delta · Built with Claude Code · Phase 1 USA Active</footer>
+
+<script>
+  // Clock
+  function updateClock() {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // Load stats from API
+  async function loadStats() {
+    try {
+      const health = await fetch('/health').then(r => r.json());
+      // Stats would come from real API endpoints in production
+    } catch(e) {}
+  }
+  loadStats();
+
+  // Erin chat
+  async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const messages = document.getElementById('chat-messages');
+    const text = input.value.trim();
+    if (!text) return;
+
+    messages.innerHTML += `<div class="chat-msg"><span class="who user">[You]</span>${escapeHtml(text)}</div>`;
+    input.value = '';
+    messages.scrollTop = messages.scrollHeight;
+
+    try {
+      const resp = await fetch('/erin/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: text}),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        messages.innerHTML += `<div class="chat-msg"><span class="who erin">[Erin]</span>${escapeHtml(data.reply)}</div>`;
+      } else {
+        messages.innerHTML += `<div class="chat-msg"><span class="who system">[System]</span>Erin endpoint not yet connected — add /erin/chat route to main.py.</div>`;
+      }
+    } catch(e) {
+      messages.innerHTML += `<div class="chat-msg"><span class="who system">[System]</span>Could not reach Erin. Is the server running?</div>`;
+    }
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  document.getElementById('chat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendMessage();
+  });
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Responsive two-col
+  function checkWidth() {
+    const twoCol = document.querySelector('.two-col');
+    if (twoCol) {
+      twoCol.style.gridTemplateColumns = window.innerWidth < 700 ? '1fr' : '1fr 1fr';
+    }
+  }
+  window.addEventListener('resize', checkWidth);
+  checkWidth();
+</script>
+</body>
+</html>

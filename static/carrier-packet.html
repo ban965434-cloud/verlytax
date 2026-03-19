@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ClearRoute Dispatch — Carrier Services Packet</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --card: #13131a;
+      --border: #1e1e2e;
+      --accent: #6c63ff;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; }
+
+    /* NAV */
+    nav {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo { font-size: 1.1rem; font-weight: 800; }
+    .logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 20px; align-items: center; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.85rem; }
+    .nav-links a:hover { color: var(--text); }
+    .print-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-family: inherit;
+    }
+    .print-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    .wrapper { max-width: 860px; margin: 0 auto; padding: 60px 40px 80px; }
+
+    /* COVER */
+    .cover {
+      text-align: center;
+      padding: 60px 0 50px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 60px;
+    }
+    .cover .tag {
+      display: inline-block;
+      background: rgba(108,99,255,0.12);
+      border: 1px solid rgba(108,99,255,0.3);
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 99px;
+      margin-bottom: 24px;
+    }
+    .cover h1 { font-size: 2.4rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 12px; }
+    .cover h1 span { color: var(--accent); }
+    .cover .sub { font-size: 1rem; color: var(--muted); margin-bottom: 6px; }
+    .cover .conf { font-size: 0.75rem; color: var(--muted); margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
+
+    /* SECTIONS */
+    .doc-section { margin-bottom: 52px; }
+    .doc-section h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.78rem;
+      margin-bottom: 18px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-section p { font-size: 0.92rem; color: var(--text); line-height: 1.75; margin-bottom: 14px; }
+    .doc-section p:last-child { margin-bottom: 0; }
+
+    /* BULLET LIST */
+    .bullet-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .bullet-list li { font-size: 0.88rem; color: var(--text); padding-left: 20px; position: relative; line-height: 1.6; }
+    .bullet-list li::before { content: "→"; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+
+    /* TABLE */
+    .doc-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+    .doc-table th { background: #1a1a2e; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 18px; text-align: left; }
+    .doc-table td { padding: 13px 18px; border-top: 1px solid var(--border); font-size: 0.87rem; }
+    .doc-table td.highlight { color: var(--green); font-weight: 700; }
+    .doc-table td.accent { color: var(--accent); font-weight: 700; }
+
+    /* CHECKLIST */
+    .checklist { display: flex; flex-direction: column; gap: 12px; }
+    .check-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: 0.88rem;
+    }
+    .check-num {
+      background: rgba(108,99,255,0.15);
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 0.78rem;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .check-item .check-title { font-weight: 600; margin-bottom: 2px; }
+    .check-item .check-sub { font-size: 0.78rem; color: var(--muted); }
+
+    /* PROTECTION RULES */
+    .rules-grid { display: flex; flex-direction: column; gap: 10px; }
+    .rule-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.87rem;
+    }
+    .rule-row .rule-num { color: var(--accent); font-weight: 800; font-size: 0.9rem; width: 20px; flex-shrink: 0; }
+    .rule-row .rule-text { color: var(--text); }
+    .rule-row .rule-why { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+    /* FAQ */
+    .faq-list { display: flex; flex-direction: column; gap: 10px; }
+    .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; }
+    .faq-q { font-weight: 600; font-size: 0.88rem; margin-bottom: 8px; }
+    .faq-a { font-size: 0.83rem; color: var(--muted); line-height: 1.65; }
+
+    /* CTA */
+    .cta-box {
+      background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(79,70,229,0.06));
+      border: 1px solid rgba(108,99,255,0.3);
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+    }
+    .cta-box h3 { font-size: 1.4rem; font-weight: 800; margin-bottom: 12px; }
+    .cta-box p { font-size: 0.9rem; color: var(--muted); margin-bottom: 28px; }
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent), #4f46e5);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 14px 32px;
+      border-radius: 10px;
+    }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.72rem; padding: 32px; border-top: 1px solid var(--border); margin-top: 40px; }
+
+    /* PRINT STYLES */
+    @media print {
+      nav, .print-btn-wrap, footer { display: none !important; }
+      body { background: #fff; color: #111; }
+      .wrapper { padding: 20px; max-width: 100%; }
+      .cover h1, .doc-section h2 { color: #3730a3; }
+      .doc-table, .check-item, .rule-row, .faq-item { border-color: #e5e7eb; background: #f9fafb; }
+      .cover .tag { background: #ede9fe; color: #4f46e5; border-color: #c4b5fd; }
+      .cta-box { background: #f3f4f6; border-color: #e5e7eb; }
+      .btn-primary { background: #4f46e5; }
+      a { color: #4f46e5; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo"><span>Clear</span>Route Dispatch</div>
+  <div class="nav-links">
+    <a href="/about">About</a>
+    <a href="/shipper-broker-packet">Broker Packet</a>
+    <button class="print-btn" onclick="window.print()">⬇ Download / Print</button>
+  </div>
+</nav>
+
+<div class="wrapper">
+
+  <!-- COVER -->
+  <div class="cover">
+    <div class="tag">Carrier Services Packet — Confidential</div>
+    <h1><span>Clear</span>Route Dispatch</h1>
+    <p class="sub">AI-Powered Freight Dispatch · USA Phase 1</p>
+    <p class="sub" style="font-size:0.85rem;">"You drive. We handle the rest."</p>
+    <p class="conf">This document is intended for prospective and active carrier partners of ClearRoute Dispatch. Please do not redistribute without authorization.</p>
+  </div>
+
+  <!-- WHO WE ARE -->
+  <div class="doc-section">
+    <h2>Who We Are</h2>
+    <p>
+      ClearRoute Dispatch is an AI-native freight dispatch operation built from the ground up to protect carriers — not exploit them. We handle the full business side of your operation: load booking, rate negotiation, broker vetting, invoicing, collections, and dispute resolution.
+    </p>
+    <p>
+      Our dispatcher, Erin, is available around the clock. Our standards are non-negotiable. Our fee structure is transparent. We built ClearRoute for owner-operators and small fleets who are tired of being handed bad loads, ripped off by slow-pay brokers, and left to deal with compliance on their own.
+    </p>
+    <p>
+      You're good at driving. We're good at everything else. That's the whole model.
+    </p>
+  </div>
+
+  <!-- WHAT WE DO -->
+  <div class="doc-section">
+    <h2>What We Do For You</h2>
+    <ul class="bullet-list">
+      <li><strong>Load booking</strong> — We source loads from verified brokers across major load boards, filtered to your lanes, equipment, and our minimum rate requirements.</li>
+      <li><strong>Rate negotiation</strong> — Erin negotiates on your behalf. We never accept below $2.51 RPM. When rates come in low, we counter. When brokers won't move, we walk.</li>
+      <li><strong>Broker vetting</strong> — Every broker is cross-checked against our blocked broker database before a load is offered. Bad actors don't get a second chance in our network.</li>
+      <li><strong>Invoicing & collections</strong> — We generate and send all invoices. We chase payment so you don't have to. Late pay triggers escalation within 24 hours.</li>
+      <li><strong>Dispute handling</strong> — Billing disputes under $200 with clear documentation are resolved by our team, not on your time. Larger disputes escalate to our CEO immediately.</li>
+      <li><strong>BOL management</strong> — We never release the Bill of Lading before delivery is confirmed. Your leverage is protected on every load.</li>
+      <li><strong>Compliance monitoring</strong> — We track your COI expiration, NDS enrollment status, and FMCSA authority. If something's about to lapse, we tell you before it's a problem.</li>
+      <li><strong>HOS awareness</strong> — We don't book loads that put you in violation of hours-of-service regulations. Your logs stay clean.</li>
+    </ul>
+  </div>
+
+  <!-- FEE SCHEDULE -->
+  <div class="doc-section">
+    <h2>Fee Schedule</h2>
+    <table class="doc-table">
+      <thead>
+        <tr><th>Period</th><th>Fee on Gross Revenue</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Trial — Days 1–7</td><td class="highlight">FREE</td><td>No credit card required. Full service, zero cost.</td></tr>
+        <tr><td>Months 1–4</td><td class="accent">8% of gross</td><td>On total gross before any factoring discount.</td></tr>
+        <tr><td>Month 5+ (new carriers)</td><td class="accent">10% of gross</td><td>Standard rate after introductory period.</td></tr>
+        <tr><td>Month 5+ (OG carriers)</td><td class="highlight">8% for life</td><td>Original carrier loyalty rate — never increases.</td></tr>
+        <tr><td>Extra services</td><td class="accent">+10% on base</td><td>Added to your standard rate, not compounded.</td></tr>
+        <tr><td>Weekly minimum</td><td>$100 USD</td><td>Applies once trial ends and billing begins.</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px;font-size:0.78rem;color:var(--muted);">
+      Fees are assessed on <strong>gross revenue before factoring discount</strong>. Auto-charge runs every Monday via Stripe. Failed payments result in service suspension and an immediate alert to operations management.
+    </p>
+  </div>
+
+  <!-- CARRIER PROTECTIONS (Iron Rules reframed) -->
+  <div class="doc-section">
+    <h2>Our Iron Standards — How We Protect You</h2>
+    <p style="margin-bottom:18px;">These aren't just our policies. They're enforced at the system level. No one on our team can override them — not even our CEO.</p>
+    <div class="rules-grid">
+      <div class="rule-row">
+        <div class="rule-num">1</div>
+        <div>
+          <div class="rule-text">No Florida loads — ever. Pickup or delivery.</div>
+          <div class="rule-why">Eliminated from our network. No exceptions, no negotiations.</div>
+        </div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-num">2</div>
+        <div>
+          <div class="rule-text">Minimum $2.51 RPM on every load.</div>
+          <div class="rule-why">We counter low offers. We never accept below this floor. Your rate is protected before you see the load.</div>
+        </div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-num">3</div>
+        <div>
+          <div class="rule-text">Max 50-mile deadhead / 25% of total trip.</div>
+          <div class="rule-why">We don't burn your fuel on unpaid miles. Deadhead is screened before every offer.</div>
+        </div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-num">4</div>
+        <div>
+          <div class="rule-text">Max weight 48,000 lbs.</div>
+          <div class="rule-why">Keeps you within legal limits and protects your equipment.</div>
+        </div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-num">5</div>
+        <div>
+          <div class="rule-text">No Unsatisfactory or Conditional safety-rated carriers accepted.</div>
+          <div class="rule-why">We protect the quality of our network. Every carrier is FMCSA verified before their first dispatch.</div>
+        </div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-num">6</div>
+        <div>
+          <div class="rule-text">Authority must be 180+ days old before dispatch.</div>
+          <div class="rule-why">Verified live through FMCSA — not paper certificates or screenshots.</div>
+        </div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-num">7</div>
+        <div>
+          <div class="rule-text">Failed FMCSA Clearinghouse = instant block, no exceptions.</div>
+          <div class="rule-why">Protects the integrity of the network and shields all carriers from association risk.</div>
+        </div>
+      </div>
+      <div class="rule-row">
+        <div class="rule-num">8</div>
+        <div>
+          <div class="rule-text">BOL is never released before delivery is confirmed.</div>
+          <div class="rule-why">Your proof of delivery is your payment leverage. We guard it until the job is done.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONBOARDING CHECKLIST -->
+  <div class="doc-section">
+    <h2>Onboarding Checklist — 10 Steps to Your First Load</h2>
+    <div class="checklist">
+      <div class="check-item">
+        <div class="check-num">1</div>
+        <div>
+          <div class="check-title">Submit your MC authority number</div>
+          <div class="check-sub">We verify age (180+ days required), status, and entity type via live FMCSA portal.</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <div class="check-num">2</div>
+        <div>
+          <div class="check-title">Provide certificate of insurance (COI)</div>
+          <div class="check-sub">Current COI naming ClearRoute Dispatch as certificate holder. Minimum $1M auto liability.</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <div class="check-num">3</div>
+        <div>
+          <div class="check-title">FMCSA safety rating confirmation</div>
+          <div class="check-sub">Must be Satisfactory. Conditional or Unsatisfactory = cannot onboard.</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <div class="check-num">4</div>
+        <div>
+          <div class="check-title">FMCSA Drug & Alcohol Clearinghouse enrollment</div>
+          <div class="check-sub">Must be enrolled before Day 1 load. $100/year — carrier pays directly to FMCSA.</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <div class="check-num">5</div>
+        <div>
+          <div class="check-title">NDS enrollment confirmation</div>
+          <div class="check-sub">National Drug and Alcohol Testing Program. Required before first dispatch.</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <div class="check-num">6</div>
+        <div>
+          <div class="check-title">Provide equipment details</div>
+          <div class="check-sub">Truck year/make/model, trailer type and length, VIN, license plate, state.</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <div class="check-num">7</div>
+        <div>
+          <div class="check-title">Confirm preferred lanes and home base</div>
+          <div class="check-sub">We book around your routes, not against them. Tell us where you want to run.</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <div class="check-num">8</div>
+        <div>
+          <div class="check-title">Sign dispatch service agreement</div>
+          <div class="check-sub">DocuSign sent to your email. Covers fee structure, dispatch authority, and dispute process.</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <div class="check-num">9</div>
+        <div>
+          <div class="check-title">Set up Stripe payment profile</div>
+          <div class="check-sub">Monday auto-charge on gross revenue billed the prior week. Secure, automated, no surprises.</div>
+        </div>
+      </div>
+      <div class="check-item">
+        <div class="check-num">10</div>
+        <div>
+          <div class="check-title">Receive Day 1 packet from Nova</div>
+          <div class="check-sub">Our executive assistant sends your first-day checklist, Erin's contact info, and your first load window via SMS.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEEK 1 EXPECTATIONS -->
+  <div class="doc-section">
+    <h2>What to Expect — Your First Week</h2>
+    <ul class="bullet-list">
+      <li><strong>Day 1:</strong> Erin introduces herself via SMS and confirms your first available dispatch window. We confirm your compliance docs are complete. No load is booked until everything clears.</li>
+      <li><strong>Days 1–3:</strong> We learn your preferences — load timing, check-call frequency, preferred rest areas and truck stops. The more you tell us, the better we match loads to your style.</li>
+      <li><strong>Days 3–5:</strong> Your first loads are offered. Erin walks you through the load details, confirms acceptance, and handles all broker communication from that moment forward.</li>
+      <li><strong>Day 7:</strong> Free trial ends. We send you a summary: loads booked, miles run, revenue generated. If you're in, we transition to billing. If not, no invoice — ever.</li>
+      <li><strong>Ongoing:</strong> Weekly billing every Monday. Compliance tracking automated. Disputes handled before you have to ask.</li>
+    </ul>
+  </div>
+
+  <!-- CARRIER FAQ -->
+  <div class="doc-section">
+    <h2>Carrier FAQ</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">Can I still talk to brokers directly?</div>
+        <div class="faq-a">Once you're dispatched through ClearRoute, all broker communication goes through Erin. This protects your rate and keeps the relationship clean. If a broker tries to contact you directly about a load we booked, refer them to us.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What if I want to take a load off my own?</div>
+        <div class="faq-a">You can. We dispatch you exclusively on loads we book, but you're not prohibited from running independent freight. Just keep us informed so we don't double-book a window.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What if I can't make a load window?</div>
+        <div class="faq-a">Call or text Erin immediately. We handle the broker communication and rebook where possible. The sooner you tell us, the better we can protect your relationship with that broker.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How does Monday billing work exactly?</div>
+        <div class="faq-a">Every Monday, Stripe charges 8% (or your applicable rate) of the gross revenue from loads delivered the prior week. You'll receive a billing summary via SMS from Nova before the charge runs. If a charge fails, we suspend new dispatch and notify you immediately.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What if I want to stop using ClearRoute?</div>
+        <div class="faq-a">30-day written notice to close out any open loads and settle final billing. After that, we cancel your Stripe profile and archive your file. No termination fee. No drama.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-box">
+    <h3>Ready to Start?</h3>
+    <p>Your 7-day free trial starts the moment you complete onboarding. No credit card required. No commitment until you've seen what we can do.</p>
+    <a href="/onboarding" class="btn-primary">Begin Onboarding →</a>
+  </div>
+
+</div>
+
+<footer>
+  ClearRoute Dispatch · Carrier Services Packet · Confidential · "You drive. We handle the rest."
+</footer>
+
+</body>
+</html>

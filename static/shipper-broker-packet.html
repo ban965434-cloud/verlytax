@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ClearRoute Dispatch — Shipper & Broker Capacity Packet</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --card: #13131a;
+      --border: #1e1e2e;
+      --accent: #6c63ff;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; }
+
+    nav {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo { font-size: 1.1rem; font-weight: 800; }
+    .logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 20px; align-items: center; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.85rem; }
+    .nav-links a:hover { color: var(--text); }
+    .print-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-family: inherit;
+    }
+    .print-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    .wrapper { max-width: 860px; margin: 0 auto; padding: 60px 40px 80px; }
+
+    /* COVER */
+    .cover {
+      text-align: center;
+      padding: 60px 0 50px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 60px;
+    }
+    .cover .tag {
+      display: inline-block;
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.3);
+      color: var(--green);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 99px;
+      margin-bottom: 24px;
+    }
+    .cover h1 { font-size: 2.4rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 12px; }
+    .cover h1 span { color: var(--accent); }
+    .cover .sub { font-size: 1rem; color: var(--muted); margin-bottom: 6px; }
+    .cover .tagline { font-size: 0.9rem; color: var(--text); font-style: italic; margin-top: 18px; }
+    .cover .conf { font-size: 0.75rem; color: var(--muted); margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
+
+    /* SECTIONS */
+    .doc-section { margin-bottom: 52px; }
+    .doc-section h2 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 18px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-section p { font-size: 0.92rem; color: var(--text); line-height: 1.75; margin-bottom: 14px; }
+
+    .bullet-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .bullet-list li { font-size: 0.88rem; color: var(--text); padding-left: 20px; position: relative; line-height: 1.6; }
+    .bullet-list li::before { content: "→"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+
+    /* STANDARDS GRID */
+    .standards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .std-card {
+      background: var(--card);
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 12px;
+      padding: 20px 18px;
+    }
+    .std-card .std-icon { font-size: 1.4rem; margin-bottom: 10px; }
+    .std-card .std-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 5px; }
+    .std-card .std-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
+
+    /* WHAT YOU GET */
+    .get-list { display: flex; flex-direction: column; gap: 10px; }
+    .get-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: 0.88rem;
+    }
+    .get-check { color: var(--green); font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+    .get-item .get-title { font-weight: 600; margin-bottom: 3px; }
+    .get-item .get-sub { font-size: 0.8rem; color: var(--muted); }
+
+    /* HOW TO SUBMIT */
+    .submit-steps { display: flex; flex-direction: column; gap: 12px; }
+    .submit-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .step-num {
+      background: rgba(108,99,255,0.15);
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 0.78rem;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .submit-step .step-title { font-weight: 600; font-size: 0.88rem; margin-bottom: 3px; }
+    .submit-step .step-sub { font-size: 0.78rem; color: var(--muted); }
+
+    /* DOCS TABLE */
+    .doc-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+    .doc-table th { background: #1a1a2e; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 18px; text-align: left; }
+    .doc-table td { padding: 13px 18px; border-top: 1px solid var(--border); font-size: 0.87rem; }
+    .doc-table td.yes { color: var(--green); font-weight: 700; }
+
+    /* FAQ */
+    .faq-list { display: flex; flex-direction: column; gap: 10px; }
+    .faq-item { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; }
+    .faq-q { font-weight: 600; font-size: 0.88rem; margin-bottom: 8px; }
+    .faq-a { font-size: 0.83rem; color: var(--muted); line-height: 1.65; }
+
+    /* CTA */
+    .cta-box {
+      background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(108,99,255,0.06));
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+    }
+    .cta-box h3 { font-size: 1.4rem; font-weight: 800; margin-bottom: 12px; }
+    .cta-box p { font-size: 0.9rem; color: var(--muted); margin-bottom: 28px; }
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent), #4f46e5);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 14px 32px;
+      border-radius: 10px;
+    }
+    .btn-secondary {
+      display: inline-block;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 13px 28px;
+      border-radius: 10px;
+      margin-left: 12px;
+    }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.72rem; padding: 32px; border-top: 1px solid var(--border); margin-top: 40px; }
+
+    /* PRINT */
+    @media print {
+      nav, footer { display: none !important; }
+      body { background: #fff; color: #111; }
+      .wrapper { padding: 20px; max-width: 100%; }
+      .doc-section h2 { color: #16a34a; }
+      .std-card, .get-item, .submit-step, .faq-item { border-color: #e5e7eb; background: #f9fafb; }
+      .cover .tag { background: #dcfce7; color: #16a34a; border-color: #86efac; }
+      .cta-box { background: #f3f4f6; border-color: #e5e7eb; }
+      a { color: #4f46e5; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo"><span>Clear</span>Route Dispatch</div>
+  <div class="nav-links">
+    <a href="/about">About</a>
+    <a href="/carrier-packet">Carrier Packet</a>
+    <button class="print-btn" onclick="window.print()">⬇ Download / Print</button>
+  </div>
+</nav>
+
+<div class="wrapper">
+
+  <!-- COVER -->
+  <div class="cover">
+    <div class="tag">Carrier Network & Capacity Packet</div>
+    <h1><span>Clear</span>Route Dispatch</h1>
+    <p class="sub">For Freight Brokers & Shippers · USA Phase 1</p>
+    <p class="tagline">"Verified carriers. Reliable capacity. Handled professionally."</p>
+    <p class="conf">This packet is intended for authorized freight brokers and shippers evaluating ClearRoute Dispatch as a carrier network partner. For questions, contact our operations team directly.</p>
+  </div>
+
+  <!-- WHO WE ARE -->
+  <div class="doc-section">
+    <h2>About ClearRoute Dispatch</h2>
+    <p>
+      ClearRoute Dispatch is an AI-powered freight dispatch operation managing a vetted network of owner-operators and small fleet carriers across the continental USA (Phase 1). We handle all carrier-side communication, compliance documentation, load coordination, and billing — so your team deals with one professional point of contact, not a dozen individual drivers.
+    </p>
+    <p>
+      Every carrier in our network is personally onboarded, FMCSA-verified, Clearinghouse-enrolled, and operating under our Iron Standards — a set of non-negotiable rules enforced at the system level. When you book with a ClearRoute carrier, you're not guessing at compliance. We've already done it for you.
+    </p>
+    <p>
+      Our dispatcher, Erin, is your direct contact for all load communication. She confirms details, manages pick-up and delivery windows, handles check calls, and escalates the moment anything needs human attention. You get professionalism on every load — not just the easy ones.
+    </p>
+  </div>
+
+  <!-- CARRIER STANDARDS -->
+  <div class="doc-section">
+    <h2>Our Carrier Standards</h2>
+    <p style="margin-bottom:22px;">Every carrier dispatched through ClearRoute has passed all of the following requirements before their first load is accepted.</p>
+    <div class="standards-grid">
+      <div class="std-card">
+        <div class="std-icon">🏛️</div>
+        <div class="std-title">FMCSA Authority — Active & Verified</div>
+        <div class="std-desc">Minimum 180 days active. Verified through the live FMCSA portal — not paper certificates or email screenshots.</div>
+      </div>
+      <div class="std-card">
+        <div class="std-icon">✅</div>
+        <div class="std-title">Satisfactory Safety Rating Only</div>
+        <div class="std-desc">We do not dispatch Conditional or Unsatisfactory carriers. Period. No exceptions for any reason.</div>
+      </div>
+      <div class="std-card">
+        <div class="std-icon">💊</div>
+        <div class="std-title">FMCSA Clearinghouse Enrolled</div>
+        <div class="std-desc">Every carrier is enrolled in the FMCSA Drug & Alcohol Clearinghouse. Failed tests result in immediate and permanent block from our network.</div>
+      </div>
+      <div class="std-card">
+        <div class="std-icon">🛡️</div>
+        <div class="std-title">Current COI on File</div>
+        <div class="std-desc">Certificate of Insurance on file with ClearRoute. Minimum $1M auto liability. We track expiration dates and alert before lapse.</div>
+      </div>
+      <div class="std-card">
+        <div class="std-icon">🏋️</div>
+        <div class="std-title">Max Load Weight 48,000 lbs</div>
+        <div class="std-desc">All loads are confirmed within legal weight limits before acceptance. No overweight loads dispatched.</div>
+      </div>
+      <div class="std-card">
+        <div class="std-icon">🧪</div>
+        <div class="std-title">NDS Drug Testing Program</div>
+        <div class="std-desc">All ClearRoute carriers are enrolled in the National Drug and Alcohol Testing Program before their first dispatch.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WHAT YOU GET -->
+  <div class="doc-section">
+    <h2>What You Get Working With ClearRoute</h2>
+    <div class="get-list">
+      <div class="get-item">
+        <div class="get-check">✓</div>
+        <div>
+          <div class="get-title">One professional point of contact</div>
+          <div class="get-sub">Erin handles all load communication on behalf of our carriers. You'll never be chasing down an individual driver for updates.</div>
+        </div>
+      </div>
+      <div class="get-item">
+        <div class="get-check">✓</div>
+        <div>
+          <div class="get-title">Pre-verified compliance documentation</div>
+          <div class="get-sub">MC authority, COI, Clearinghouse status, and safety rating — all verified before you see the carrier. Available for download on any load.</div>
+        </div>
+      </div>
+      <div class="get-item">
+        <div class="get-check">✓</div>
+        <div>
+          <div class="get-title">Reliable check calls and status updates</div>
+          <div class="get-sub">We provide check calls on your schedule. Erin confirms pickup, in-transit, and delivery milestones — you don't have to chase.</div>
+        </div>
+      </div>
+      <div class="get-item">
+        <div class="get-check">✓</div>
+        <div>
+          <div class="get-title">BOL held until delivery confirmed</div>
+          <div class="get-sub">We never release the Bill of Lading before delivery is confirmed. This protects you and ensures clean documentation on every load.</div>
+        </div>
+      </div>
+      <div class="get-item">
+        <div class="get-check">✓</div>
+        <div>
+          <div class="get-title">Direct escalation path for issues</div>
+          <div class="get-sub">Any problem on a load gets escalated internally within 1 hour. You'll have a response before you need to follow up.</div>
+        </div>
+      </div>
+      <div class="get-item">
+        <div class="get-check">✓</div>
+        <div>
+          <div class="get-title">No rate games</div>
+          <div class="get-sub">We don't bait-and-switch rates or renegotiate after loading. What we agree to is what gets invoiced. No surprises.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW TO SUBMIT A LOAD -->
+  <div class="doc-section">
+    <h2>How to Submit a Load to ClearRoute</h2>
+    <div class="submit-steps">
+      <div class="submit-step">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">Contact Erin with load details</div>
+          <div class="step-sub">Origin, destination, pickup window, weight, rate. Text or email — we respond within 30 minutes during business hours.</div>
+        </div>
+      </div>
+      <div class="submit-step">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">We confirm carrier availability and rate</div>
+          <div class="step-sub">We'll match the load to an available, compliant carrier and confirm acceptance. No ghosting, no indefinite holds.</div>
+        </div>
+      </div>
+      <div class="submit-step">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Rate confirmation sent</div>
+          <div class="step-sub">You receive a signed rate confirmation before the carrier is released to pickup. Documentation is clean and complete.</div>
+        </div>
+      </div>
+      <div class="submit-step">
+        <div class="step-num">4</div>
+        <div>
+          <div class="step-title">Load tracked through delivery</div>
+          <div class="step-sub">Erin handles all check calls and status updates. Delivery confirmation and POD are sent to you promptly after drop.</div>
+        </div>
+      </div>
+      <div class="submit-step">
+        <div class="step-num">5</div>
+        <div>
+          <div class="step-title">Invoice and payment on your standard terms</div>
+          <div class="step-sub">Invoice submitted after delivery. We follow your AP process. No exceptions required for standard net terms.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPLIANCE DOCUMENTATION TABLE -->
+  <div class="doc-section">
+    <h2>Compliance Documentation Available Per Carrier</h2>
+    <table class="doc-table">
+      <thead>
+        <tr><th>Document</th><th>Available on Request</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>FMCSA Authority Verification</td><td class="yes">Yes</td><td>Live portal confirmation, not screenshots</td></tr>
+        <tr><td>Certificate of Insurance (COI)</td><td class="yes">Yes</td><td>Current, with ClearRoute as certificate holder</td></tr>
+        <tr><td>FMCSA Safety Rating</td><td class="yes">Yes</td><td>Satisfactory — verified at onboarding and monitored</td></tr>
+        <tr><td>Clearinghouse Enrollment Confirmation</td><td class="yes">Yes</td><td>Drug & Alcohol program enrollment verified</td></tr>
+        <tr><td>NDS Enrollment Certificate</td><td class="yes">Yes</td><td>National Drug and Alcohol Testing Program</td></tr>
+        <tr><td>MC Number & USDOT Number</td><td class="yes">Yes</td><td>Included on every rate confirmation</td></tr>
+        <tr><td>Equipment Details</td><td class="yes">Yes</td><td>Make, model, year, VIN, license plate, state</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BROKER FAQ -->
+  <div class="doc-section">
+    <h2>Broker FAQ</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">What lanes do your carriers run?</div>
+        <div class="faq-a">We currently operate USA Phase 1 — continental US lanes excluding Florida (pickup or delivery). Our carrier base is primarily Midwest, Southeast (non-FL), Mid-Atlantic, and Heartland lanes. Contact us with your specific origin and destination for immediate availability.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What equipment types are available?</div>
+        <div class="faq-a">Phase 1 carriers run dry van and flatbed. Max weight 48,000 lbs. We do not currently dispatch refrigerated, heavy haul, or oversized loads.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can we add ClearRoute to our carrier list?</div>
+        <div class="faq-a">Yes. We'll send you a carrier packet with all required documentation — MC, USDOT, COI, W-9, and carrier agreement. Turn time for a complete packet is same business day.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What happens if there's a problem on a load?</div>
+        <div class="faq-a">Contact Erin immediately. Any issue on a load gets escalated internally within 1 hour. If a load requires a significant decision — claims, delays, substitution — our operations team responds directly. We do not leave you without a point of contact.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How do we report a problem carrier or issue?</div>
+        <div class="faq-a">Contact us at any time. If a carrier in our network creates a problem — service failure, conduct issue, documentation miss — we want to know immediately. Problem carriers are reviewed and removed from our dispatch network without exception.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-box">
+    <h3>Add ClearRoute to Your Preferred Carrier Network</h3>
+    <p>Get a complete compliance packet, carrier list, and direct contact for Erin — sent same business day.</p>
+    <a href="/onboarding" class="btn-primary">Request Carrier Packet →</a>
+    <a href="/about" class="btn-secondary">Learn More</a>
+  </div>
+
+</div>
+
+<footer>
+  ClearRoute Dispatch · Carrier Network & Capacity Packet · For Authorized Broker/Shipper Use · "Verified carriers. Reliable capacity."
+</footer>
+
+</body>
+</html>

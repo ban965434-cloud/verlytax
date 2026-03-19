@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ClearRoute Dispatch — AI-Powered Freight Dispatch</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --card: #13131a;
+      --border: #1e1e2e;
+      --accent: #6c63ff;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --text: #e2e8f0;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; line-height: 1.6; }
+
+    /* NAV */
+    nav {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.04em; }
+    .logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.88rem; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      background: var(--accent);
+      color: #fff !important;
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.85rem !important;
+    }
+    .nav-cta:hover { opacity: 0.9; }
+
+    /* HERO — PAIN */
+    .hero {
+      text-align: center;
+      padding: 100px 40px 80px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      background: rgba(239,68,68,0.15);
+      border: 1px solid rgba(239,68,68,0.4);
+      color: var(--red);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 99px;
+      margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      font-weight: 900;
+      line-height: 1.15;
+      margin-bottom: 24px;
+      letter-spacing: -0.02em;
+    }
+    .hero h1 em { color: var(--red); font-style: normal; }
+    .hero p {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 40px;
+    }
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent), #4f46e5);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 16px 36px;
+      border-radius: 12px;
+      transition: transform 0.15s, opacity 0.15s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary:hover { transform: translateY(-2px); opacity: 0.95; }
+    .hero-sub { font-size: 0.78rem; color: var(--muted); margin-top: 14px; }
+
+    /* SECTION WRAPPER */
+    .section { max-width: 1100px; margin: 0 auto; padding: 80px 40px; }
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+    .section h2 {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 800;
+      margin-bottom: 16px;
+      letter-spacing: -0.01em;
+    }
+    .section-sub { font-size: 1rem; color: var(--muted); max-width: 580px; margin-bottom: 48px; }
+
+    /* AGITATE — COST CARDS */
+    .agitate-bg { background: rgba(239,68,68,0.04); border-top: 1px solid rgba(239,68,68,0.15); border-bottom: 1px solid rgba(239,68,68,0.15); }
+    .cost-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+    .cost-card {
+      background: var(--card);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 14px;
+      padding: 28px 24px;
+    }
+    .cost-card .loss {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--red);
+      margin-bottom: 8px;
+    }
+    .cost-card .scenario { font-size: 0.88rem; color: var(--text); font-weight: 600; margin-bottom: 6px; }
+    .cost-card .detail { font-size: 0.8rem; color: var(--muted); }
+
+    /* SOLUTION */
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+    .step-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 24px;
+      position: relative;
+    }
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), #4f46e5);
+      border-radius: 50%;
+      font-weight: 800;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+    .step-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 10px; }
+    .step-card p { font-size: 0.85rem; color: var(--muted); }
+
+    /* TRUST BADGES */
+    .trust-bg { background: var(--card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .badges-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .badge-card {
+      background: var(--bg);
+      border: 1px solid rgba(108,99,255,0.3);
+      border-radius: 12px;
+      padding: 20px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .badge-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .badge-card .badge-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 3px; }
+    .badge-card .badge-desc { font-size: 0.75rem; color: var(--muted); }
+
+    /* FAQs */
+    .faq-list { display: flex; flex-direction: column; gap: 12px; }
+    .faq-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .faq-q {
+      padding: 20px 24px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    .faq-q:hover { background: rgba(255,255,255,0.03); }
+    .faq-chevron { color: var(--accent); font-size: 1.1rem; transition: transform 0.2s; flex-shrink: 0; }
+    .faq-a {
+      padding: 0 24px;
+      font-size: 0.87rem;
+      color: var(--muted);
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.2s;
+    }
+    .faq-item.open .faq-a { max-height: 300px; padding: 0 24px 20px; }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+
+    /* FINAL CTA */
+    .cta-section {
+      text-align: center;
+      background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(79,70,229,0.08));
+      border-top: 1px solid rgba(108,99,255,0.2);
+      border-bottom: 1px solid rgba(108,99,255,0.2);
+    }
+    .cta-section h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 900; margin-bottom: 16px; letter-spacing: -0.02em; }
+    .cta-section p { font-size: 1rem; color: var(--muted); margin-bottom: 36px; }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 32px 40px;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo"><span>Clear</span>Route Dispatch</div>
+  <div class="nav-links">
+    <a href="/carrier-packet">Carrier Packet</a>
+    <a href="/shipper-broker-packet">Shippers & Brokers</a>
+    <a href="/">Ops Dashboard</a>
+    <a href="#start" class="nav-cta">Get Started Free</a>
+  </div>
+</nav>
+
+<!-- ===== SECTION 1: PAIN ===== -->
+<section class="hero">
+  <div class="hero-eyebrow">The Dispatch Problem Nobody Talks About</div>
+  <h1>Most Dispatchers Are<br><em>Wasting Your Miles.</em></h1>
+  <p>
+    Load boards. Phone tag. Bad rates. Compliance headaches. You're out here doing the hardest job on the road — and your dispatcher is playing games with your money.
+  </p>
+  <a href="#start" class="btn-primary">Start Your Free 7-Day Trial</a>
+  <p class="hero-sub">No credit card. No commitment. Just loads at $2.51+ RPM, guaranteed.</p>
+</section>
+
+<!-- ===== SECTION 2: AGITATE ===== -->
+<section class="agitate-bg">
+  <div class="section">
+    <div class="section-label">The Real Cost of Bad Dispatch</div>
+    <h2>Here's what a bad dispatcher<br>actually costs you.</h2>
+    <p class="section-sub">Every one of these happens every week across the industry. If it happened to you even once, you already know.</p>
+
+    <div class="cost-grid">
+      <div class="cost-card">
+        <div class="loss">$600+</div>
+        <div class="scenario">One bad rate accepted</div>
+        <div class="detail">A dispatcher takes a $1.80 RPM load instead of countering to $2.51. On a 600-mile run, that's $426 left on the table — before fuel.</div>
+      </div>
+      <div class="cost-card">
+        <div class="loss">$1,800+</div>
+        <div class="scenario">Compliance miss = shutdown</div>
+        <div class="detail">Expired COI, failed Clearinghouse, or unverified authority. One FMCSA flag means you're off the road. The cost isn't just the fine — it's the days you can't run.</div>
+      </div>
+      <div class="cost-card">
+        <div class="loss">$2,400+</div>
+        <div class="scenario">A blocked broker rebooked</div>
+        <div class="detail">If your dispatcher doesn't track bad brokers, you'll work with one twice. Unpaid invoices average $2,400 per incident. That's your problem now.</div>
+      </div>
+      <div class="cost-card">
+        <div class="loss">Total control</div>
+        <div class="scenario">BOL released before delivery</div>
+        <div class="detail">Once that BOL leaves your hands before delivery is confirmed, your leverage is gone. Disputes become your burden. Payment becomes a favor, not a guarantee.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 3: SOLUTION ===== -->
+<section class="section">
+  <div class="section-label">The ClearRoute Way</div>
+  <h2>We built this with one rule:<br>your truck, your money, our job.</h2>
+  <p class="section-sub">ClearRoute is an AI-powered dispatch operation that screens every load, verifies every broker, and handles everything while you focus on driving.</p>
+
+  <div class="steps">
+    <div class="step-card">
+      <div class="step-number">1</div>
+      <h3>You Enroll in 10 Minutes</h3>
+      <p>We verify your MC authority, insurance (COI), FMCSA Clearinghouse status, and safety rating. If everything clears — you're in. We get to work same day.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-number">2</div>
+      <h3>Erin Books Your Loads</h3>
+      <p>Our AI dispatcher Erin screens every rate ($2.51 RPM minimum, hard floor — no exceptions), cross-checks every broker against our blocked list, and handles all the back-and-forth.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-number">3</div>
+      <h3>You Drive. We Handle Everything Else.</h3>
+      <p>Invoicing, collections, dispute escalation, BOL management, and compliance tracking — all handled. You get paid. We get our 8%. That's the whole deal.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 4: TRUST BADGES ===== -->
+<section class="trust-bg">
+  <div class="section">
+    <div class="section-label">Why Carriers Trust ClearRoute</div>
+    <h2>Built on standards, not promises.</h2>
+    <p class="section-sub">Every rule we operate by is enforced by our system — not a person having a good day.</p>
+
+    <div class="badges-grid">
+      <div class="badge-card">
+        <div class="badge-icon">🛡️</div>
+        <div>
+          <div class="badge-title">FMCSA Compliant System</div>
+          <div class="badge-desc">Every carrier verified through the live FMCSA portal — not paper certificates.</div>
+        </div>
+      </div>
+      <div class="badge-card">
+        <div class="badge-icon">💰</div>
+        <div>
+          <div class="badge-title">$2.51+ RPM Hard Floor</div>
+          <div class="badge-desc">We never accept a load below $2.51 per mile. No exceptions. No negotiations downward.</div>
+        </div>
+      </div>
+      <div class="badge-card">
+        <div class="badge-icon">📋</div>
+        <div>
+          <div class="badge-title">180-Day Authority Verified</div>
+          <div class="badge-desc">Your MC authority must be 180+ days old before we dispatch your first load. We check every time.</div>
+        </div>
+      </div>
+      <div class="badge-card">
+        <div class="badge-icon">✅</div>
+        <div>
+          <div class="badge-title">Clearinghouse Enrolled</div>
+          <div class="badge-desc">FMCSA Drug & Alcohol Clearinghouse enrollment required. No enrollment = no loads. Keeps everyone protected.</div>
+        </div>
+      </div>
+      <div class="badge-card">
+        <div class="badge-icon">🆓</div>
+        <div>
+          <div class="badge-title">7-Day Free Trial</div>
+          <div class="badge-desc">No credit card required. See exactly how we operate before you commit a single dollar.</div>
+        </div>
+      </div>
+      <div class="badge-card">
+        <div class="badge-icon">📊</div>
+        <div>
+          <div class="badge-title">8% Fee — No Hidden Cuts</div>
+          <div class="badge-desc">8% of your gross revenue. That's it. We don't touch your fuel surcharge games or "admin fees."</div>
+        </div>
+      </div>
+      <div class="badge-card">
+        <div class="badge-icon">🚫</div>
+        <div>
+          <div class="badge-title">No Florida Loads. Ever.</div>
+          <div class="badge-desc">Zero tolerance. Not on pickup. Not on delivery. Our system auto-rejects Florida-touching loads before they're offered.</div>
+        </div>
+      </div>
+      <div class="badge-card">
+        <div class="badge-icon">📄</div>
+        <div>
+          <div class="badge-title">BOL Released After Delivery Only</div>
+          <div class="badge-desc">Your proof of delivery is your leverage. We never release the BOL until delivery is confirmed. Period.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 5: FAQs ===== -->
+<section class="section">
+  <div class="section-label">Frequently Asked Questions</div>
+  <h2>Straight answers.<br>No runaround.</h2>
+  <p class="section-sub">If you have a question that's not here, Erin can answer it directly — just start your trial and ask.</p>
+
+  <div class="faq-list">
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        What does ClearRoute actually do for me?
+        <span class="faq-chevron">▼</span>
+      </div>
+      <div class="faq-a">
+        We handle everything that isn't driving. That means load booking, rate negotiation, broker screening, invoicing, collections, dispute escalation, BOL management, and compliance tracking. You run your truck. We run the business side.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        What does it cost?
+        <span class="faq-chevron">▼</span>
+      </div>
+      <div class="faq-a">
+        Days 1–7: Free. No credit card needed. After your trial, it's 8% of your gross revenue for Months 1–4. If you stay with us beyond Month 4, new carriers go to 10% — but original carriers (OG carriers) stay at 8% for life. Minimum $100/week applies once you're billing. That's the whole fee structure.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        How do you find loads?
+        <span class="faq-chevron">▼</span>
+      </div>
+      <div class="faq-a">
+        Our AI dispatcher Erin works load boards and broker relationships to find freight that meets our Iron Rules: $2.51+ RPM, max 50-mile deadhead (25%), max 48,000 lbs, no Florida, and only brokers with a clean history in our system. We don't take just any load — we take the right load.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        What if a broker doesn't pay?
+        <span class="faq-chevron">▼</span>
+      </div>
+      <div class="faq-a">
+        Erin handles the dispute. Any billing issue under $200 with clear documentation gets resolved on our end — you don't have to make a single call. Anything over $500, or any dispute that's unresolved after 48 hours, gets escalated directly to our CEO. Blocked brokers are added to our permanent block list so they never touch our network again.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        Do I need to be enrolled in NDS?
+        <span class="faq-chevron">▼</span>
+      </div>
+      <div class="faq-a">
+        Yes. NDS (National Drug and Alcohol Testing Program) enrollment is required before we dispatch your first load. It's $100/year and the carrier pays it directly. This is non-negotiable — it protects you, your authority, and the shippers we work with.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        Can I talk to a real person?
+        <span class="faq-chevron">▼</span>
+      </div>
+      <div class="faq-a">
+        Yes. Erin is our AI dispatcher but there is always a human in the loop. When a situation requires a judgment call — a big money decision, a carrier dispute, a retention issue — our CEO steps in directly. You're not going to be stuck in a chatbot loop when something actually matters.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        What types of equipment do you dispatch?
+        <span class="faq-chevron">▼</span>
+      </div>
+      <div class="faq-a">
+        We currently dispatch dry van and flatbed in Phase 1 USA operations. Max weight 48,000 lbs. We verify all equipment and authority types at enrollment. If you run something different, contact us — we'll tell you straight whether we can work together.
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        What happens after my free trial ends?
+        <span class="faq-chevron">▼</span>
+      </div>
+      <div class="faq-a">
+        We'll send you a clear summary of what we did during your trial — loads booked, revenue generated, issues handled. Then we'll walk you through your fee structure and get you set up on Stripe auto-pay on Monday billing. No pressure. If the trial didn't show value, you walk away with no obligation and no invoice.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 6: FINAL CTA ===== -->
+<section class="cta-section" id="start">
+  <div class="section" style="padding-top:80px;padding-bottom:80px;">
+    <div class="section-label" style="text-align:center;">Ready When You Are</div>
+    <h2>Stop leaving money<br>on the table.</h2>
+    <p>7 days. No credit card. Real loads. If we don't deliver, you walk. Simple as that.</p>
+    <a href="/onboarding" class="btn-primary">Get Started — 7 Days Free</a>
+    <p style="font-size:0.78rem;color:var(--muted);margin-top:14px;">Have questions first? <a href="/carrier-packet" style="color:var(--accent);text-decoration:none;">View the carrier packet →</a></p>
+  </div>
+</section>
+
+<footer>
+  <p style="margin-bottom:8px;">
+    <a href="/about">About</a> &nbsp;·&nbsp;
+    <a href="/carrier-packet">Carrier Packet</a> &nbsp;·&nbsp;
+    <a href="/shipper-broker-packet">Shippers & Brokers</a> &nbsp;·&nbsp;
+    <a href="/">Ops Dashboard</a>
+  </p>
+  <p>ClearRoute Dispatch · AI-Native Freight Operations · "You drive. We handle the rest."</p>
+</footer>
+
+<script>
+  function toggleFaq(el) {
+    const item = el.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+</script>
+</body>
+</html>
