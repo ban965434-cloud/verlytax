@@ -50,6 +50,36 @@ async def dashboard():
     return HTMLResponse("<h1>Verlytax OS v4</h1><p>Dashboard loading...</p>")
 
 
+@app.get("/about", response_class=HTMLResponse)
+async def about():
+    """ClearRoute Dispatch public about page — PAS formula, trust badges, FAQs."""
+    path = os.path.join(static_dir, "about.html")
+    if os.path.exists(path):
+        with open(path) as f:
+            return f.read()
+    return HTMLResponse("<h1>About ClearRoute Dispatch</h1>")
+
+
+@app.get("/carrier-packet", response_class=HTMLResponse)
+async def carrier_packet():
+    """Carrier services packet — onboarding, fees, Iron Standards, FAQ."""
+    path = os.path.join(static_dir, "carrier-packet.html")
+    if os.path.exists(path):
+        with open(path) as f:
+            return f.read()
+    return HTMLResponse("<h1>ClearRoute Carrier Packet</h1>")
+
+
+@app.get("/shipper-broker-packet", response_class=HTMLResponse)
+async def shipper_broker_packet():
+    """Shipper and broker capacity packet — carrier standards, compliance docs, load submission."""
+    path = os.path.join(static_dir, "shipper-broker-packet.html")
+    if os.path.exists(path):
+        with open(path) as f:
+            return f.read()
+    return HTMLResponse("<h1>ClearRoute Broker Packet</h1>")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "system": "Verlytax OS v4", "version": "4.0.0"}
