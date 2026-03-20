@@ -13,6 +13,7 @@ from sqlalchemy import select
 from app.db import get_db, Carrier, CarrierStatus
 from app.iron_rules import check_carrier
 from app.services import nova_day1_carrier_packet, nova_alert_ceo, fmcsa_lookup
+from app.gdrive import create_carrier_drive_folder
 
 router = APIRouter()
 
@@ -142,10 +143,17 @@ async def activate_trial(mc_number: str, db: AsyncSession = Depends(get_db)):
         mc_number=carrier.mc_number,
     )
 
+    # Brain auto-creates Google Drive folder structure for this carrier
+    drive_result = create_carrier_drive_folder(
+        carrier_name=carrier.name,
+        mc_number=carrier.mc_number,
+    )
+
     return {
         "status": "trial_active",
         "trial_start": carrier.trial_start_date,
         "day1_sms": sms_result,
+        "drive_folder": drive_result,
         "next_steps": [
             "Day 3: Mid-trial check-in",
             "Day 5: DocuSign service agreement sent",

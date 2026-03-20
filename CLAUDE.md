@@ -29,20 +29,41 @@ verlytax/
 ├── .env.example                       ← Template — copy to .env, never commit
 ├── README.md                          ← Public-facing project overview
 ├── app/
-│   ├── main.py                        ← FastAPI entry + APScheduler crons
+│   ├── main.py                        ← FastAPI entry + APScheduler crons (6 jobs)
 │   ├── db.py                          ← SQLAlchemy async models
 │   ├── iron_rules.py                  ← Iron Rules enforcement logic
-│   ├── services.py                    ← Nova SMS, Erin (Claude API), Stripe, FMCSA
+│   ├── gdrive.py                      ← Google Drive folder creation
+│   ├── services.py                    ← Nova SMS, Erin (Claude API), Stripe, FMCSA, agent helpers
 │   └── routes/
 │       ├── onboarding.py              ← Carrier onboarding (10-step flow)
 │       ├── billing.py                 ← Load booking, BOL, fee collection
 │       ├── escalation.py             ← Disputes, Delta escalations, broker blocks
-│       └── webhooks.py               ← Stripe, Twilio SMS, Retell, internal crons
-└── static/
-    ├── dashboard.html                 ← Operations dashboard (served at /)
-    ├── about.html                     ← About Verlytax (served at /about)
-    ├── carrier-packet.html            ← Carrier onboarding packet (/carrier-packet)
-    └── shipper-broker-packet.html     ← Broker info packet (/shipper-broker-packet)
+│       ├── webhooks.py               ← Stripe, Twilio SMS, Retell, internal crons
+│       ├── carriers.py               ← Carrier list, bulk import, CSV export
+│       ├── brain.py                  ← SOP CRUD, automation log, rule toggles (/brain/*)
+│       └── agents.py                 ← Receptionist, Megan SDR, Dan SDR (/agents/*)
+├── static/
+│   ├── dashboard.html                 ← Operations dashboard (served at /)
+│   ├── about.html                     ← About Verlytax (served at /about)
+│   ├── carrier-packet.html            ← Carrier onboarding packet (/carrier-packet)
+│   └── shipper-broker-packet.html     ← Broker info packet (/shipper-broker-packet)
+└── VERLYTAX_AIOS/
+    ├── AIOS_INDEX.md                  ← AIOS front door (read first)
+    ├── CONTEXT_OS.md                  ← 8-node context wheel
+    ├── DECISION_ENGINE.md             ← 5-stage decision thresholds
+    ├── AUTOMATION_SCHEDULE.md         ← Every cron and event trigger
+    ├── BUILD_ROADMAP.md               ← Phase 1→3 build + revenue targets
+    ├── KENNETH_DISPATCH_MODULE.md     ← Carrier profile template
+    ├── SOPs/                          ← Standard Operating Procedures (text, versioned)
+    │   ├── SOP_INDEX.md               ← SOP master index
+    │   ├── SOP_001_CARRIER_ONBOARDING.md
+    │   ├── SOP_002_LOAD_BOOKING.md
+    │   └── SOP_003_DISPUTE_RESOLUTION.md
+    └── agents/
+        ├── DANIEL_EA.md               ← Delta's EA system prompt
+        ├── RECEPTIONIST.md            ← Inbound qualifier
+        ├── SDR_MEGAN.md               ← Outbound SDR (cold outreach)
+        └── SDR_DAN.md                 ← Outbound SDR (B-voice)
 ```
 
 ---
@@ -51,9 +72,12 @@ verlytax/
 
 | Agent | Role | Status | Location |
 |---|---|---|---|
-| **Erin** | AI Dispatcher — load booking, carrier comms, billing | Active | `services.erin_respond()` + `Erin_System_Prompt_v4.txt` |
+| **Erin** | AI Dispatcher — load booking, carrier comms, billing, proactive SMS | Active | `services.erin_respond()` + `Erin_System_Prompt_v4.txt` |
 | **Nova** | Executive Assistant — Delta SMS alerts, Day 1 packets, fee alerts | Active | `services.nova_sms()`, `services.nova_alert_ceo()` |
-| **Brain** | Master engine — FMCSA queries, DB, APScheduler crons | Active | `app/main.py` (scheduler) + `services.fmcsa_lookup()` |
+| **Brain** | Master engine — FMCSA queries, DB, APScheduler crons, autonomous scans | Active | `app/main.py` (6 scheduler jobs) + `services.fmcsa_lookup()` |
+| **Receptionist** | Inbound qualifier — screens new carrier inquiries | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/RECEPTIONIST.md` |
+| **Megan SDR** | Outbound SDR — carrier acquisition cold outreach | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/SDR_MEGAN.md` |
+| **Dan SDR** | Outbound SDR — carrier acquisition (B-voice) | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/SDR_DAN.md` |
 | **CEO Agent** | Shadow mode — learning Delta's decisions | Shadow Only | Not yet built |
 
 ---
@@ -83,7 +107,7 @@ See `IRON_RULES.md` for the full legal text. See `app/iron_rules.py` for enforce
 
 ## Database Models (`app/db.py`)
 
-Four SQLAlchemy async models, all stored in `verlytax.db`:
+Six SQLAlchemy async models, all stored in `verlytax.db`:
 
 | Model | Table | Purpose |
 |---|---|---|
@@ -91,6 +115,8 @@ Four SQLAlchemy async models, all stored in `verlytax.db`:
 | `Load` | `loads` | Every load booked: route, RPM, weight, BOL status |
 | `BlockedBroker` | `blocked_brokers` | Permanently blocked brokers — never delete entries |
 | `EscalationLog` | `escalation_logs` | All disputes and Delta escalations |
+| `AutomationLog` | `automation_logs` | Audit trail for every autonomous action — never deleted |
+| `AutomationRule` | `automation_rules` | Governance toggles — Delta enables/disables automations |
 
 **Carrier status enum:** `lead → trial → active → suspended → churned`
 
@@ -131,6 +157,29 @@ Four SQLAlchemy async models, all stored in `verlytax.db`:
 - `POST /webhooks/retell` — Retell voice call callbacks
 - `POST /webhooks/internal` — internal cron triggers (token-protected)
 
+### Carriers (`/carriers/*`)
+- `POST /carriers/import` — bulk CSV import of carrier leads
+- `GET /carriers/list` — paginated carrier list with search + status filter
+- `GET /carriers/stats` — pipeline snapshot (counts by status)
+- `GET /carriers/export/csv` — export carrier list as CSV
+
+### Brain (`/brain/*`)
+- `GET /brain/sops` — list all SOPs in VERLYTAX_AIOS/SOPs/
+- `GET /brain/sops/{filename}` — read a specific SOP
+- `POST /brain/sops` — create/overwrite a SOP (requires INTERNAL_TOKEN)
+- `GET /brain/automation-log` — paginated audit log of all autonomous actions
+- `GET /brain/rules` — list all automation rules + enabled state
+- `POST /brain/rules/{rule_key}/toggle` — enable/disable any automation rule (requires INTERNAL_TOKEN)
+- `POST /brain/setup-drive` — one-time Google Drive folder structure setup
+
+### Agents (`/agents/*`)
+- `POST /agents/receptionist` — run inbound lead through Receptionist agent (requires INTERNAL_TOKEN)
+- `POST /agents/sdr/megan` — Megan SDR drafts outbound carrier acquisition SMS (requires INTERNAL_TOKEN)
+- `POST /agents/sdr/dan` — Dan SDR drafts outbound SMS B-voice variant (requires INTERNAL_TOKEN)
+
+### Erin Chat (`/erin/*`)
+- `POST /erin/chat` — live chat with Erin from the dashboard
+
 ### Core (`/`)
 - `GET /` — dashboard (dashboard.html)
 - `GET /about` — about page
@@ -143,14 +192,18 @@ Four SQLAlchemy async models, all stored in `verlytax.db`:
 
 ## Scheduled Jobs (APScheduler in `app/main.py`)
 
-Two crons run on startup via APScheduler:
+Six crons run on startup via APScheduler. All governed by `AutomationRule` toggles — Delta can disable any via `POST /brain/rules/{rule_key}/toggle`.
 
-| Job | Schedule | What it does |
-|---|---|---|
-| `check_trial_touchpoints()` | Daily at 9:00 AM UTC | Sends Day 3/7/14/30 win-back SMS via Nova to trial/churned carriers |
-| `friday_fee_charge()` | Fridays at 10:00 AM UTC | Charges all active carriers' weekly fees via Stripe; suspends + alerts Delta on failure |
+| Job | Schedule | Rule Key | What it does |
+|---|---|---|---|
+| `check_trial_touchpoints()` | Daily 9:00 AM UTC | *(always on)* | Day 3/7/14/30 SMS to trial/churned carriers |
+| `friday_fee_charge()` | Fridays 10:00 AM UTC | *(always on)* | Charges active carriers weekly; suspends on failure |
+| `coi_expiry_check()` | Daily 7:00 AM UTC | `coi_expiry_check` | Alerts Delta + SMS carrier when COI within 30 days |
+| `testimonial_sms()` | Daily 10:30 AM UTC | `testimonial_sms` | Day 30 feedback SMS + Day 60 review ask to active carriers |
+| `annual_fmcsa_recheck()` | Jan 1, 6:00 AM UTC | `annual_fmcsa_recheck` | Re-checks FMCSA for all active carriers; suspends failures |
+| `brain_autonomous_scan()` | Daily 8:00 AM UTC | `overdue_load_scan` / `no_load_carrier_scan` / `stale_lead_scan` | Scans for overdue loads, inactive active carriers, stale leads |
 
-**Note:** The original design called for Monday auto-charge. This was changed to Friday in the actual implementation. Do not revert to Monday without Delta's approval.
+**Note:** Friday fee charge was changed from Monday in the original design. Do not revert without Delta's approval.
 
 ---
 
@@ -162,9 +215,12 @@ Two crons run on startup via APScheduler:
 | `nova_alert_ceo(subject, body)` | Alert Delta directly (CEO phone only) |
 | `nova_day1_carrier_packet(phone, name, mc)` | Send onboarding packet SMS on trial activation |
 | `erin_respond(message, context)` | Call Claude API with Erin's system prompt, return response |
-| `calculate_fee(gross_revenue, months_active, is_og)` | Returns fee amount in dollars (always on gross BEFORE factoring) |
+| `calculate_fee(gross_revenue, carrier_active_since, trial_start, has_extra_services, is_og)` | Returns fee amount in dollars (always on gross BEFORE factoring) |
 | `charge_carrier_fee(stripe_customer_id, amount_cents, description)` | Charge carrier via Stripe |
 | `fmcsa_lookup(mc_number)` | Live FMCSA portal query (async) |
+| `log_automation(agent, action_type, description, result, ...)` | Write to automation_logs — call from any cron or trigger |
+| `load_agent_prompt(filename)` | Load agent system prompt from VERLYTAX_AIOS/agents/{filename} |
+| `run_agent(system_prompt_file, message, context)` | Run any agent (Megan, Dan, Receptionist) through Claude |
 | `verify_internal_token(token)` | Constant-time comparison for cron auth |
 | `verify_twilio_signature(url, params, sig)` | Twilio webhook signature verification |
 
@@ -210,13 +266,10 @@ Two crons run on startup via APScheduler:
 
 Items from the original roadmap that are **not yet implemented:**
 
-1. **`/erin/chat` endpoint** — connect the dashboard chat box to `services.erin_respond()` so Delta can chat with Erin live from the dashboard
-2. **Retell voice integration** — connect inbound carrier phone calls to Erin via Retell AI (webhook skeleton exists at `/webhooks/retell` but logic is not wired)
-3. **Brain annual re-query** — FMCSA Clearinghouse re-check on all active carriers once per year (prevent carrying unsafe operators)
-4. **Carrier retention flow** — send testimonial request SMS via Nova at Day 30 and Day 60
-5. **DocuSign integration** — auto-send service agreement PDF at Day 5 of trial
-6. **DAT rate feed** — pull live RPM data per lane for scoring in `services.py`
-7. **Canada Phase 2** — NSC/CVOR/SAAQ compliance — **only build when Delta explicitly activates**
+1. **Retell voice integration** — connect inbound carrier phone calls to Erin via Retell AI (webhook skeleton exists at `/webhooks/retell` but logic is not wired)
+2. **DocuSign integration** — auto-send service agreement PDF at Day 5 of trial
+3. **DAT rate feed** — pull live RPM data per lane for scoring in `services.py`
+4. **Canada Phase 2** — NSC/CVOR/SAAQ compliance — **only build when Delta explicitly activates**
 
 Items already completed (do not re-add to roadmap):
 - ~~Monday auto-charge cron~~ → Built as Friday auto-charge in `main.py`
@@ -225,6 +278,13 @@ Items already completed (do not re-add to roadmap):
 - ~~Load booking with Iron Rules~~ → Fully built in `routes/billing.py`
 - ~~BOL release guard~~ → Enforced in `routes/billing.py`
 - ~~Broker block system~~ → Built in `routes/escalation.py`
+- ~~`/erin/chat` endpoint~~ → Live in `app/main.py`
+- ~~Brain annual FMCSA re-check~~ → Built as `annual_fmcsa_recheck()` cron in `main.py`
+- ~~Carrier retention Day 30/60 SMS~~ → Built as `testimonial_sms()` cron in `main.py`
+- ~~Autonomous Brain scan~~ → Built as `brain_autonomous_scan()` cron in `main.py`
+- ~~Wire existing agents (Receptionist, Megan, Dan)~~ → Live in `app/routes/agents.py`
+- ~~SOP + knowledge storage~~ → `VERLYTAX_AIOS/SOPs/` + Google Drive folders added
+- ~~Automation governance layer~~ → `AutomationLog`, `AutomationRule` models + `/brain/rules` endpoints
 
 ---
 

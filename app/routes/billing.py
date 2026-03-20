@@ -10,9 +10,9 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.db import get_db, Carrier, Load, LoadStatus
+from app.db import get_db, Carrier, Load, LoadStatus, CarrierStatus, BlockedBroker
 from app.iron_rules import check_load, get_rpm_tier, can_release_bol
-from app.services import calculate_fee, charge_carrier_fee, nova_alert_ceo, nova_sms
+from app.services import calculate_fee, charge_carrier_fee, nova_alert_ceo, nova_sms, log_automation
 
 router = APIRouter()
 
@@ -83,6 +83,13 @@ async def book_load(data: LoadCreate, db: AsyncSession = Depends(get_db)):
     if carrier.status not in ("active", "trial"):
         raise HTTPException(400, f"Carrier status '{carrier.status}' — cannot dispatch.")
 
+    # Iron Rule 8 — Blocked broker check
+    broker_result = await db.execute(
+        select(BlockedBroker).where(BlockedBroker.broker_name == data.broker_name)
+    )
+    if broker_result.scalar_one_or_none():
+        raise HTTPException(403, f"Iron Rule 8: Broker '{data.broker_name}' is permanently blocked. Never rebook.")
+
     # Iron Rules check
     check = check_load(
         origin_state=data.origin_state,
@@ -105,6 +112,7 @@ async def book_load(data: LoadCreate, db: AsyncSession = Depends(get_db)):
         carrier_active_since=carrier.active_since,
         trial_start=carrier.trial_start_date,
         has_extra_services=data.has_extra_services,
+        is_og=carrier.is_og,
     )
 
     load = Load(
@@ -153,6 +161,25 @@ async def confirm_delivery(load_id: int, pod_collected: bool = True, db: AsyncSe
     load.invoice_sent_at = datetime.utcnow()
     await db.commit()
 
+    # Erin proactive SMS — notify carrier of fee and net pay timeline
+    carrier_result = await db.execute(select(Carrier).where(Carrier.mc_number == load.carrier_mc))
+    carrier = carrier_result.scalar_one_or_none()
+    if carrier and carrier.phone and load.verlytax_fee and load.rate_total:
+        net = round(load.rate_total - load.verlytax_fee, 2)
+        nova_sms(
+            carrier.phone,
+            f"Hi {carrier.name.split()[0]}, Erin with Verlytax. "
+            f"Load #{load_id} is marked delivered — great run. "
+            f"Verlytax fee ${load.verlytax_fee:.2f} will be collected this Friday. "
+            f"Your net: ${net:.2f}. BOL releases once fee clears. "
+            f"Any issues, reply here."
+        )
+        log_automation(
+            agent="erin", action_type="delivery_confirmation_sms",
+            description=f"Load #{load_id} delivered — fee/net SMS sent",
+            result="sent", carrier_mc=load.carrier_mc, load_id=load_id,
+        )
+
     return {
         "status": "delivered",
         "load_id": load_id,
@@ -175,6 +202,9 @@ async def release_bol(data: BolReleaseRequest, db: AsyncSession = Depends(get_db
     load = result.scalar_one_or_none()
     if not load:
         raise HTTPException(404, "Load not found.")
+
+    if not load.fee_collected:
+        raise HTTPException(403, "Cannot release BOL — Verlytax fee not yet collected for this load.")
 
     load.bol_released = True
     await db.commit()
@@ -210,6 +240,21 @@ async def collect_fee(load_id: int, db: AsyncSession = Depends(get_db)):
         load.fee_collected = True
         load.status = LoadStatus.PAID
         await db.commit()
+
+        # Erin proactive SMS — fee cleared, BOL released, ready for next load
+        if carrier.phone:
+            nova_sms(
+                carrier.phone,
+                f"Hi {carrier.name.split()[0]}, Erin with Verlytax. "
+                f"Fee cleared for Load #{load_id} — BOL is released. "
+                f"Great run. Ready for the next one? Reply and I'll get you loaded."
+            )
+            log_automation(
+                agent="erin", action_type="fee_collected_sms",
+                description=f"Load #{load_id} fee cleared — BOL released SMS sent",
+                result="sent", carrier_mc=load.carrier_mc, load_id=load_id,
+            )
+
         return {"status": "collected", "amount": load.verlytax_fee, "load_id": load_id}
 
     # Failed payment — suspend carrier + alert Delta
@@ -219,7 +264,7 @@ async def collect_fee(load_id: int, db: AsyncSession = Depends(get_db)):
         subject=f"PAYMENT FAILED — MC#{load.carrier_mc}",
         body=f"Fee ${load.verlytax_fee:.2f} failed for Load #{load_id}.\nStripe error: {charge.get('reason')}",
     )
-    carrier.status = "suspended"
+    carrier.status = CarrierStatus.SUSPENDED
     await db.commit()
 
     return {"status": "failed", "reason": charge.get("reason"), "carrier_suspended": True}
