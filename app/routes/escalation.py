@@ -94,8 +94,9 @@ async def create_escalation(data: EscalationCreate, db: AsyncSession = Depends(g
         nova_alert_ceo(
             subject=f"ESCALATION: {data.issue_type.upper()} | MC#{data.carrier_mc or 'N/A'}",
             body=(
-                f"Issue: {data.description}\n"
-                f"Amount: ${data.amount:.2f}" if data.amount else f"Issue: {data.description}"
+                f"Issue: {data.description}\nAmount: ${data.amount:.2f}"
+                if data.amount
+                else f"Issue: {data.description}"
             ),
         )
 

@@ -3,6 +3,7 @@ Verlytax OS v4 — FastAPI Application Entry Point
 "You drive. We handle the rest."
 """
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -36,7 +37,7 @@ async def check_trial_touchpoints():
             select(Carrier).where(
                 Carrier.trial_start_date.isnot(None),
                 Carrier.is_blocked == False,
-                Carrier.status.in_([CarrierStatus.TRIAL, CarrierStatus.INACTIVE]),
+                Carrier.status.in_([CarrierStatus.TRIAL, CarrierStatus.CHURNED]),
             )
         )
         carriers = result.scalars().all()
@@ -100,7 +101,7 @@ async def check_trial_touchpoints():
                 )
                 c.sms_day30_sent = True
                 if c.status == CarrierStatus.TRIAL:
-                    c.status = CarrierStatus.INACTIVE
+                    c.status = CarrierStatus.CHURNED
                 await session.commit()
                 nova_alert_ceo(
                     subject=f"Trial Expired — MC#{c.mc_number}",
@@ -143,6 +144,7 @@ async def friday_fee_charge():
             gross_load_revenue=total_gross,
             carrier_active_since=carrier.active_since,
             trial_start=carrier.trial_start_date,
+            is_og=carrier.is_og,
         )
         fee_cents = int(fee_info["fee_amount"] * 100)
 
@@ -194,13 +196,13 @@ async def lifespan(app: FastAPI):
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         friday_fee_charge,
-        CronTrigger(day_of_week="fri", hour=9, minute=0, timezone="America/New_York"),
+        CronTrigger(day_of_week="fri", hour=10, minute=0, timezone="UTC"),
         id="friday_fee_charge",
         replace_existing=True,
     )
     scheduler.add_job(
         check_trial_touchpoints,
-        CronTrigger(hour=8, minute=0, timezone="America/New_York"),
+        CronTrigger(hour=9, minute=0, timezone="UTC"),
         id="trial_touchpoints",
         replace_existing=True,
     )
@@ -280,7 +282,7 @@ class ErinChatRequest(BaseModel):
 @app.post("/erin/chat")
 async def erin_chat(req: ErinChatRequest):
     """Live chat with Erin — AI Dispatcher. Wired to dashboard chat box."""
-    reply = erin_respond(req.message)
+    reply = await asyncio.to_thread(erin_respond, req.message)
     return {"reply": reply}
 
 

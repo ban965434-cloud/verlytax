@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.db import get_db, Carrier, Load, LoadStatus
+from app.db import get_db, Carrier, Load, LoadStatus, CarrierStatus, BlockedBroker
 from app.iron_rules import check_load, get_rpm_tier, can_release_bol
 from app.services import calculate_fee, charge_carrier_fee, nova_alert_ceo, nova_sms
 
@@ -82,6 +82,13 @@ async def book_load(data: LoadCreate, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Carrier not found in verlytax.db")
     if carrier.status not in ("active", "trial"):
         raise HTTPException(400, f"Carrier status '{carrier.status}' — cannot dispatch.")
+
+    # Iron Rule 8 — Blocked broker check
+    broker_result = await db.execute(
+        select(BlockedBroker).where(BlockedBroker.broker_name == data.broker_name)
+    )
+    if broker_result.scalar_one_or_none():
+        raise HTTPException(403, f"Iron Rule 8: Broker '{data.broker_name}' is permanently blocked. Never rebook.")
 
     # Iron Rules check
     check = check_load(
@@ -177,6 +184,9 @@ async def release_bol(data: BolReleaseRequest, db: AsyncSession = Depends(get_db
     if not load:
         raise HTTPException(404, "Load not found.")
 
+    if not load.fee_collected:
+        raise HTTPException(403, "Cannot release BOL — Verlytax fee not yet collected for this load.")
+
     load.bol_released = True
     await db.commit()
     return {"status": "bol_released", "load_id": data.load_id}
@@ -220,7 +230,7 @@ async def collect_fee(load_id: int, db: AsyncSession = Depends(get_db)):
         subject=f"PAYMENT FAILED — MC#{load.carrier_mc}",
         body=f"Fee ${load.verlytax_fee:.2f} failed for Load #{load_id}.\nStripe error: {charge.get('reason')}",
     )
-    carrier.status = "suspended"
+    carrier.status = CarrierStatus.SUSPENDED
     await db.commit()
 
     return {"status": "failed", "reason": charge.get("reason"), "carrier_suspended": True}
