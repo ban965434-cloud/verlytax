@@ -84,6 +84,12 @@ class Carrier(Base):
     stripe_customer_id = Column(String)
     stripe_payment_method = Column(String)
 
+    # Trial touchpoint tracking (prevents duplicate SMS)
+    sms_day3_sent = Column(Boolean, default=False)
+    sms_day7_sent = Column(Boolean, default=False)
+    sms_day14_sent = Column(Boolean, default=False)
+    sms_day30_sent = Column(Boolean, default=False)
+
     # Flags
     is_blocked = Column(Boolean, default=False)
     block_reason = Column(Text)
