@@ -13,8 +13,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus
-from app.routes import onboarding, billing, escalation, webhooks
-from app.services import nova_alert_ceo, charge_carrier_fee, calculate_fee
+from app.routes import onboarding, billing, escalation, webhooks, carriers
+from app.services import nova_alert_ceo, charge_carrier_fee, calculate_fee, erin_respond
 
 from sqlalchemy import select
 from datetime import datetime
@@ -230,6 +230,7 @@ app.include_router(onboarding.router, prefix="/onboarding", tags=["Onboarding"])
 app.include_router(billing.router, prefix="/billing", tags=["Billing"])
 app.include_router(escalation.router, prefix="/escalation", tags=["Escalation"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
+app.include_router(carriers.router, prefix="/carriers", tags=["Carriers"])
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -270,6 +271,28 @@ async def shipper_broker_packet():
         with open(path) as f:
             return f.read()
     return HTMLResponse("<h1>ClearRoute Broker Packet</h1>")
+
+
+class ErinChatRequest(BaseModel):
+    message: str
+
+
+@app.post("/erin/chat")
+async def erin_chat(req: ErinChatRequest):
+    """Live chat with Erin — AI Dispatcher. Wired to dashboard chat box."""
+    reply = erin_respond(req.message)
+    return {"reply": reply}
+
+
+@app.post("/brain/setup-drive")
+async def brain_setup_drive():
+    """
+    One-time Brain task: create top-level Google Drive folder structure.
+    Run once after connecting Google service account. Idempotent — safe to re-run.
+    """
+    from app.gdrive import ensure_top_level_structure
+    result = ensure_top_level_structure()
+    return result
 
 
 @app.get("/health")

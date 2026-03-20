@@ -90,6 +90,9 @@ class Carrier(Base):
     sms_day14_sent = Column(Boolean, default=False)
     sms_day30_sent = Column(Boolean, default=False)
 
+    # Notes (internal dispatch notes, import source, etc.)
+    notes = Column(Text)
+
     # Flags
     is_blocked = Column(Boolean, default=False)
     block_reason = Column(Text)
