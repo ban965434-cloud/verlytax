@@ -114,6 +114,7 @@ def calculate_fee(
     carrier_active_since: Optional[datetime],
     trial_start: Optional[datetime],
     has_extra_services: bool = False,
+    is_og: bool = False,
 ) -> dict:
     """
     Calculate Verlytax dispatch fee per Iron Rules fee structure.
@@ -133,7 +134,7 @@ def calculate_fee(
     # Determine base %
     if active_since := carrier_active_since:
         months_active = (now - active_since).days / 30
-        base_pct = 0.08 if months_active < 5 else 0.10
+        base_pct = 0.08 if (months_active < 5 or is_og) else 0.10
         period = f"month_{int(months_active)+1}"
     else:
         base_pct = 0.08

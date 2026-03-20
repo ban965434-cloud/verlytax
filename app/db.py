@@ -27,11 +27,11 @@ class CarrierStatus(str, enum.Enum):
     TRIAL = "trial"
     ACTIVE = "active"
     SUSPENDED = "suspended"
-    INACTIVE = "inactive"
+    CHURNED = "churned"
     BLOCKED = "blocked"
 
 class LoadStatus(str, enum.Enum):
-    SEARCHING = "searching"
+    PENDING = "pending"
     BOOKED = "booked"
     IN_TRANSIT = "in_transit"
     DELIVERED = "delivered"
@@ -78,6 +78,7 @@ class Carrier(Base):
     factoring_remittance_address = Column(String)
 
     # Business
+    is_og = Column(Boolean, default=False)           # OG carriers: 8% for life, never increase
     status = Column(String, default=CarrierStatus.LEAD)
     trial_start_date = Column(DateTime)
     active_since = Column(DateTime)
@@ -139,8 +140,8 @@ class Load(Base):
 
 
 class BlockedBroker(Base):
-    """memory_brokers — Iron Rule 8: permanently blocked brokers."""
-    __tablename__ = "memory_brokers"
+    """blocked_brokers — Iron Rule 8: permanently blocked brokers."""
+    __tablename__ = "blocked_brokers"
 
     id = Column(Integer, primary_key=True, index=True)
     broker_name = Column(String, nullable=False)
@@ -161,6 +162,7 @@ class EscalationLog(Base):
     description = Column(Text)
     amount = Column(Float)
     status = Column(String, default="pending")   # pending / resolved / written_off
+    resolved_by = Column(String)                 # "erin" or "delta"
     created_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime)
 

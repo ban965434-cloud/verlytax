@@ -105,6 +105,7 @@ async def book_load(data: LoadCreate, db: AsyncSession = Depends(get_db)):
         carrier_active_since=carrier.active_since,
         trial_start=carrier.trial_start_date,
         has_extra_services=data.has_extra_services,
+        is_og=carrier.is_og,
     )
 
     load = Load(
