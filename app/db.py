@@ -7,7 +7,7 @@ NEVER store sensitive carrier data in flat files.
 import os
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Integer, Float, Boolean, DateTime, Text, Enum
+    Column, String, Integer, Float, Boolean, DateTime, Text, Enum, select
 )
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -91,6 +91,10 @@ class Carrier(Base):
     sms_day14_sent = Column(Boolean, default=False)
     sms_day30_sent = Column(Boolean, default=False)
 
+    # Active carrier retention SMS (tracks days since active_since)
+    sms_active_day30_sent = Column(Boolean, default=False)  # 30-day feedback ask
+    sms_active_day60_sent = Column(Boolean, default=False)  # 60-day review ask
+
     # Notes (internal dispatch notes, import source, etc.)
     notes = Column(Text)
 
@@ -127,7 +131,7 @@ class Load(Base):
     bol_released = Column(Boolean, default=False)  # Iron Rule 11
     pod_collected = Column(Boolean, default=False)
 
-    status = Column(String, default=LoadStatus.SEARCHING)
+    status = Column(String, default=LoadStatus.PENDING)
 
     verlytax_fee = Column(Float)
     fee_collected = Column(Boolean, default=False)
@@ -167,6 +171,44 @@ class EscalationLog(Base):
     resolved_at = Column(DateTime)
 
 
+class AutomationLog(Base):
+    """Audit trail for every autonomous action taken by Brain, Erin, or any agent."""
+    __tablename__ = "automation_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent = Column(String, nullable=False)            # "brain", "erin", "megan", "receptionist", etc.
+    action_type = Column(String, nullable=False)      # "coi_expiry_sms", "overdue_load_alert", etc.
+    carrier_mc = Column(String, index=True)
+    load_id = Column(Integer)
+    description = Column(Text)
+    result = Column(String)                           # "sent", "skipped", "failed", "escalated"
+    escalated_to_delta = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AutomationRule(Base):
+    """Governance layer — Delta can disable any autonomous automation without a code deploy."""
+    __tablename__ = "automation_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rule_key = Column(String, unique=True, nullable=False, index=True)
+    description = Column(String, nullable=False)
+    enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# Default rules seeded on first startup
+DEFAULT_AUTOMATION_RULES = [
+    ("annual_fmcsa_recheck",  "Annual FMCSA Clearinghouse re-check on all active carriers"),
+    ("coi_expiry_check",      "Daily COI expiry warning — alerts Delta + SMS carrier when COI within 30 days"),
+    ("testimonial_sms",       "Retention SMS at Day 30 and Day 60 of active status"),
+    ("overdue_load_scan",     "Daily scan for loads in-transit past delivery date by 24+ hours"),
+    ("stale_lead_scan",       "Daily scan for leads with no activity in 14+ days — alerts Delta"),
+    ("no_load_carrier_scan",  "Daily scan for active carriers with no loads in 14+ days — Erin check-in SMS"),
+]
+
+
 # ── Session dependency ────────────────────────────────────────────────────────
 
 async def get_db():
@@ -177,3 +219,13 @@ async def get_db():
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Seed default automation rules (idempotent — skips if already exist)
+    async with AsyncSessionLocal() as session:
+        for rule_key, description in DEFAULT_AUTOMATION_RULES:
+            existing = await session.execute(
+                select(AutomationRule).where(AutomationRule.rule_key == rule_key)
+            )
+            if not existing.scalar_one_or_none():
+                session.add(AutomationRule(rule_key=rule_key, description=description))
+        await session.commit()

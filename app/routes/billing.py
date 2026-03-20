@@ -12,7 +12,7 @@ from sqlalchemy import select
 
 from app.db import get_db, Carrier, Load, LoadStatus, CarrierStatus, BlockedBroker
 from app.iron_rules import check_load, get_rpm_tier, can_release_bol
-from app.services import calculate_fee, charge_carrier_fee, nova_alert_ceo, nova_sms
+from app.services import calculate_fee, charge_carrier_fee, nova_alert_ceo, nova_sms, log_automation
 
 router = APIRouter()
 
@@ -161,6 +161,25 @@ async def confirm_delivery(load_id: int, pod_collected: bool = True, db: AsyncSe
     load.invoice_sent_at = datetime.utcnow()
     await db.commit()
 
+    # Erin proactive SMS — notify carrier of fee and net pay timeline
+    carrier_result = await db.execute(select(Carrier).where(Carrier.mc_number == load.carrier_mc))
+    carrier = carrier_result.scalar_one_or_none()
+    if carrier and carrier.phone and load.verlytax_fee and load.rate_total:
+        net = round(load.rate_total - load.verlytax_fee, 2)
+        nova_sms(
+            carrier.phone,
+            f"Hi {carrier.name.split()[0]}, Erin with Verlytax. "
+            f"Load #{load_id} is marked delivered — great run. "
+            f"Verlytax fee ${load.verlytax_fee:.2f} will be collected this Friday. "
+            f"Your net: ${net:.2f}. BOL releases once fee clears. "
+            f"Any issues, reply here."
+        )
+        log_automation(
+            agent="erin", action_type="delivery_confirmation_sms",
+            description=f"Load #{load_id} delivered — fee/net SMS sent",
+            result="sent", carrier_mc=load.carrier_mc, load_id=load_id,
+        )
+
     return {
         "status": "delivered",
         "load_id": load_id,
@@ -221,6 +240,21 @@ async def collect_fee(load_id: int, db: AsyncSession = Depends(get_db)):
         load.fee_collected = True
         load.status = LoadStatus.PAID
         await db.commit()
+
+        # Erin proactive SMS — fee cleared, BOL released, ready for next load
+        if carrier.phone:
+            nova_sms(
+                carrier.phone,
+                f"Hi {carrier.name.split()[0]}, Erin with Verlytax. "
+                f"Fee cleared for Load #{load_id} — BOL is released. "
+                f"Great run. Ready for the next one? Reply and I'll get you loaded."
+            )
+            log_automation(
+                agent="erin", action_type="fee_collected_sms",
+                description=f"Load #{load_id} fee cleared — BOL released SMS sent",
+                result="sent", carrier_mc=load.carrier_mc, load_id=load_id,
+            )
+
         return {"status": "collected", "amount": load.verlytax_fee, "load_id": load_id}
 
     # Failed payment — suspend carrier + alert Delta

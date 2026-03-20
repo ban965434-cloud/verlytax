@@ -145,6 +145,9 @@ def ensure_top_level_structure() -> dict:
             "Broker/Carrier Packet",
             "Company Profile & Docs",
             "Miscellaneous",
+            "SOPs",                  # Delta uploads SOP PDFs here
+            "Transcripts",           # Erin/Retell call transcripts
+            "Training + Media",      # Screenshots, training pictures, recordings
             "01-January", "02-February", "03-March", "04-April",
             "05-May", "06-June", "07-July", "08-August",
             "09-September", "10-October", "11-November", "12-December",

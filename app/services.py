@@ -209,6 +209,87 @@ async def fmcsa_lookup(mc_number: str) -> dict:
             return {"status": "error", "reason": str(e)}
 
 
+# ── Automation helpers ────────────────────────────────────────────────────────
+
+def log_automation(
+    agent: str,
+    action_type: str,
+    description: str,
+    result: str,
+    carrier_mc: str = None,
+    load_id: int = None,
+    escalated_to_delta: bool = False,
+):
+    """
+    Write an entry to automation_logs synchronously (called from cron jobs).
+    Import AsyncSessionLocal locally to avoid circular imports.
+    """
+    import asyncio
+    from app.db import AsyncSessionLocal, AutomationLog
+
+    async def _write():
+        async with AsyncSessionLocal() as session:
+            session.add(AutomationLog(
+                agent=agent,
+                action_type=action_type,
+                carrier_mc=carrier_mc,
+                load_id=load_id,
+                description=description,
+                result=result,
+                escalated_to_delta=escalated_to_delta,
+            ))
+            await session.commit()
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(_write())
+        else:
+            loop.run_until_complete(_write())
+    except Exception:
+        pass  # Never let logging crash the automation
+
+
+def load_agent_prompt(filename: str) -> str:
+    """
+    Load an agent system prompt from VERLYTAX_AIOS/agents/{filename}.
+    Falls back to empty string if file not found — agent will still respond
+    but without persona.
+    """
+    base = os.path.join(os.path.dirname(__file__), "..", "VERLYTAX_AIOS", "agents", filename)
+    try:
+        with open(os.path.abspath(base), "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
+
+
+def run_agent(system_prompt_file: str, message: str, context: str = "") -> str:
+    """
+    Run any agent by loading its system prompt and calling Claude.
+    Same pattern as erin_respond() but generalized for Megan, Dan, Receptionist, etc.
+    """
+    if not _claude:
+        return "[Agent offline — ANTHROPIC_API_KEY not configured]"
+
+    system_prompt = load_agent_prompt(system_prompt_file)
+    if not system_prompt:
+        return f"[Agent system prompt '{system_prompt_file}' not found]"
+
+    full_message = f"{context}\n\n{message}".strip() if context else message
+
+    try:
+        response = _claude.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[{"role": "user", "content": full_message}],
+        )
+        return response.content[0].text
+    except Exception as e:
+        return f"[Agent error: {str(e)}]"
+
+
 # ── Security helpers ──────────────────────────────────────────────────────────
 
 def verify_internal_token(token: str) -> bool:
