@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
 
 from app.db import init_db
 from app.routes import onboarding, billing, escalation, webhooks
@@ -78,6 +79,17 @@ async def shipper_broker_packet():
         with open(path) as f:
             return f.read()
     return HTMLResponse("<h1>ClearRoute Broker Packet</h1>")
+
+
+class ErinChatRequest(BaseModel):
+    message: str
+
+@app.post("/erin/chat")
+async def erin_chat(req: ErinChatRequest):
+    """Live chat with Erin — AI dispatcher + Nova alerts."""
+    from app.services import erin_respond
+    reply = erin_respond(req.message)
+    return {"reply": reply}
 
 
 @app.get("/health")

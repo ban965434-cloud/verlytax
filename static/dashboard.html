@@ -1,235 +1,336 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Verlytax OS v4 — Operations Dashboard</title>
+  <title>Verlytax OS v4</title>
   <style>
     :root {
-      --bg: #0a0a0f;
-      --card: #13131a;
-      --border: #1e1e2e;
-      --accent: #6c63ff;
+      --bg: #0d0d12;
+      --card: #16161f;
+      --border: #22222f;
+      --accent: #7c6dfa;
       --green: #22c55e;
       --red: #ef4444;
-      --yellow: #eab308;
-      --text: #e2e8f0;
-      --muted: #64748b;
+      --yellow: #f59e0b;
+      --text: #e8eaf0;
+      --muted: #5a6070;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      font-size: 15px;
+    }
 
+    /* ── Header ── */
     header {
       background: var(--card);
       border-bottom: 1px solid var(--border);
-      padding: 16px 32px;
+      padding: 14px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.05em; }
-    header h1 span { color: var(--accent); }
-    .badge { background: var(--green); color: #000; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; text-transform: uppercase; }
-
-    main { padding: 32px; max-width: 1200px; margin: 0 auto; }
-
-    .tagline { color: var(--muted); font-size: 0.9rem; margin-bottom: 32px; }
-
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
-
-    .stat-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
+    .logo { font-size: 1.1rem; font-weight: 800; letter-spacing: 0.04em; }
+    .logo span { color: var(--accent); }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .badge {
+      background: var(--green); color: #000;
+      font-size: 0.65rem; font-weight: 800;
+      padding: 3px 10px; border-radius: 99px;
+      text-transform: uppercase; letter-spacing: 0.06em;
     }
-    .stat-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-    .stat-card .value { font-size: 2rem; font-weight: 700; }
-    .stat-card .value.green { color: var(--green); }
-    .stat-card .value.yellow { color: var(--yellow); }
-    .stat-card .value.red { color: var(--red); }
-    .stat-card .sub { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+    .clock { font-size: 0.8rem; color: var(--muted); }
 
-    h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    /* ── Layout ── */
+    main { padding: 20px; max-width: 900px; margin: 0 auto; }
 
-    .section { margin-bottom: 40px; }
-
-    .iron-rules {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-    .iron-rules table { width: 100%; border-collapse: collapse; }
-    .iron-rules th { background: #1a1a2e; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; padding: 12px 16px; text-align: left; }
-    .iron-rules td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.85rem; }
-    .iron-rules td:first-child { color: var(--accent); font-weight: 700; width: 40px; }
-    .pass { color: var(--green); font-size: 0.75rem; font-weight: 700; }
-    .fail { color: var(--red); font-size: 0.75rem; font-weight: 700; }
-
-    .agent-stack {
+    /* ── Stats ── */
+    .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
     }
-    .agent-card {
+    @media (min-width: 600px) {
+      .stats { grid-template-columns: repeat(4, 1fr); }
+    }
+    .stat {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 10px;
+      padding: 16px;
     }
-    .agent-card .agent-name { font-weight: 700; margin-bottom: 4px; }
-    .agent-card .agent-role { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; }
-    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-    .status-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .status-dot.shadow { background: var(--yellow); }
-
-    .rpm-tiers {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 6px;
     }
-    .rpm-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
-    .rpm-row:last-child { border-bottom: none; }
-    .rpm-label { color: var(--muted); }
-    .rpm-value { font-weight: 700; }
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .stat-sub { font-size: 0.7rem; color: var(--muted); margin-top: 5px; }
+    .green { color: var(--green); }
+    .red   { color: var(--red); }
+    .yellow{ color: var(--yellow); }
+    .accent{ color: var(--accent); }
 
-    .fee-table { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-    .fee-table table { width: 100%; border-collapse: collapse; }
-    .fee-table th { background: #1a1a2e; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; padding: 12px 16px; text-align: left; }
-    .fee-table td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.85rem; }
+    /* ── Section header ── */
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
 
-    .chat-box {
+    /* ── AI Command (Erin + Nova merged) ── */
+    .command-box {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
       overflow: hidden;
+      margin-bottom: 24px;
     }
-    .chat-messages { padding: 20px; min-height: 150px; max-height: 300px; overflow-y: auto; }
-    .chat-msg { margin-bottom: 12px; font-size: 0.85rem; }
-    .chat-msg .who { font-weight: 700; margin-right: 6px; }
-    .chat-msg .who.erin { color: var(--accent); }
-    .chat-msg .who.user { color: var(--green); }
-    .chat-msg .who.system { color: var(--muted); }
-    .chat-input-row { display: flex; border-top: 1px solid var(--border); }
-    .chat-input-row input {
-      flex: 1; background: transparent; border: none; outline: none;
-      color: var(--text); padding: 14px 16px; font-size: 0.85rem;
+    .command-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    .chat-input-row button {
-      background: var(--accent); border: none; color: #fff;
-      padding: 14px 20px; cursor: pointer; font-weight: 700; font-size: 0.85rem;
+    .agent-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      flex-shrink: 0;
     }
-    .chat-input-row button:hover { opacity: 0.9; }
+    .command-header-text { flex: 1; }
+    .command-title { font-weight: 700; font-size: 0.95rem; }
+    .command-subtitle { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
 
-    footer { text-align: center; color: var(--muted); font-size: 0.75rem; padding: 32px; border-top: 1px solid var(--border); margin-top: 40px; }
+    .messages {
+      padding: 16px 18px;
+      min-height: 180px;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+    .msg { margin-bottom: 14px; line-height: 1.5; font-size: 0.875rem; }
+    .msg-who {
+      font-weight: 700;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 3px;
+    }
+    .msg-who.erin  { color: var(--accent); }
+    .msg-who.you   { color: var(--green); }
+    .msg-who.sys   { color: var(--muted); }
+    .msg-body { color: var(--text); }
+    .msg-body.muted { color: var(--muted); font-style: italic; }
+
+    .input-row {
+      display: flex;
+      border-top: 1px solid var(--border);
+    }
+    .input-row input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      padding: 14px 16px;
+      font-size: 0.875rem;
+    }
+    .input-row input::placeholder { color: var(--muted); }
+    .input-row button {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      padding: 14px 22px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.875rem;
+      transition: opacity 0.15s;
+    }
+    .input-row button:hover { opacity: 0.85; }
+    .input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Two-col: RPM + Fees ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (min-width: 600px) {
+      .two-col { grid-template-columns: 1fr 1fr; }
+    }
+    .table-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .table-card table { width: 100%; border-collapse: collapse; }
+    .table-card th {
+      background: #1a1a26;
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 10px 14px;
+      text-align: left;
+    }
+    .table-card td {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+
+    /* ── Iron Rules ── */
+    .rules-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .rules-card table { width: 100%; border-collapse: collapse; }
+    .rules-card th {
+      background: #1a1a26;
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 10px 14px;
+      text-align: left;
+    }
+    .rules-card td {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+    .rules-card td:first-child {
+      color: var(--accent);
+      font-weight: 800;
+      width: 36px;
+    }
+    .tag {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+    .tag-reject { background: rgba(239,68,68,0.15); color: var(--red); }
+    .tag-block  { background: rgba(239,68,68,0.15); color: var(--red); }
+    .tag-req    { background: rgba(245,158,11,0.15); color: var(--yellow); }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.72rem;
+      padding: 24px 20px;
+      border-top: 1px solid var(--border);
+    }
   </style>
 </head>
 <body>
 
 <header>
-  <h1><span>VERLYTAX</span> OS v4</h1>
-  <div style="display:flex;align-items:center;gap:16px;">
+  <div class="logo"><span>VERLYTAX</span> OS v4</div>
+  <div class="header-right">
     <span class="badge">Phase 1 USA Active</span>
-    <span style="font-size:0.8rem;color:var(--muted)" id="clock"></span>
+    <span class="clock" id="clock"></span>
   </div>
 </header>
 
 <main>
-  <p class="tagline">"You drive. We handle the rest." — AI-Native Freight Dispatch | CEO: Delta</p>
 
   <!-- Stats -->
-  <div class="grid" id="stats-grid">
-    <div class="stat-card">
-      <div class="label">Active Carriers</div>
-      <div class="value green" id="stat-active">—</div>
-      <div class="sub">Phase 1 USA goal: 30–50</div>
+  <div class="stats" style="margin-top:20px;">
+    <div class="stat">
+      <div class="stat-label">Carriers</div>
+      <div class="stat-value green" id="s-carriers">—</div>
+      <div class="stat-sub">Goal: 30–50</div>
     </div>
-    <div class="stat-card">
-      <div class="label">Loads In Transit</div>
-      <div class="value yellow" id="stat-transit">—</div>
-      <div class="sub">Check in every 2–4 hrs</div>
+    <div class="stat">
+      <div class="stat-label">In Transit</div>
+      <div class="stat-value yellow" id="s-transit">—</div>
+      <div class="stat-sub">Check every 2–4 hrs</div>
     </div>
-    <div class="stat-card">
-      <div class="label">Fees Collected (MTD)</div>
-      <div class="value green" id="stat-fees">—</div>
-      <div class="sub">Gross first, always</div>
+    <div class="stat">
+      <div class="stat-label">Fees MTD</div>
+      <div class="stat-value green" id="s-fees">—</div>
+      <div class="stat-sub">Gross first, always</div>
     </div>
-    <div class="stat-card">
-      <div class="label">Open Escalations</div>
-      <div class="value red" id="stat-esc">—</div>
-      <div class="sub">48hr auto-escalate to Delta</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Min RPM</div>
-      <div class="value" style="color:var(--accent)">$2.51</div>
-      <div class="sub">Iron Rule 2 — hard floor</div>
+    <div class="stat">
+      <div class="stat-label">Escalations</div>
+      <div class="stat-value red" id="s-esc">—</div>
+      <div class="stat-sub">48hr → Delta</div>
     </div>
   </div>
 
-  <!-- Agent Stack -->
-  <div class="section">
-    <h2>Agent Stack</h2>
-    <div class="agent-stack">
-      <div class="agent-card">
-        <div class="agent-name"><span class="status-dot active"></span>Erin</div>
-        <div class="agent-role">AI Dispatcher</div>
-        <div style="font-size:0.78rem;color:var(--muted)">Load booking · Carrier comms · Billing · Disputes</div>
+  <!-- AI Command: Erin + Nova -->
+  <div class="section-title">AI Command — Erin & Nova</div>
+  <div class="command-box">
+    <div class="command-header">
+      <div class="agent-dot"></div>
+      <div class="command-header-text">
+        <div class="command-title">Erin + Nova</div>
+        <div class="command-subtitle">Dispatcher · Load booking · Carrier comms · SMS alerts · Escalations</div>
       </div>
-      <div class="agent-card">
-        <div class="agent-name"><span class="status-dot active"></span>Nova</div>
-        <div class="agent-role">Executive Assistant</div>
-        <div style="font-size:0.78rem;color:var(--muted)">Delta SMS · Escalations · Day 1 carrier packet · Fee alerts</div>
+    </div>
+    <div class="messages" id="messages">
+      <div class="msg">
+        <div class="msg-who sys">System</div>
+        <div class="msg-body muted">Verlytax OS v4 online. Erin is ready — ask anything.</div>
       </div>
-      <div class="agent-card">
-        <div class="agent-name"><span class="status-dot active"></span>Brain</div>
-        <div class="agent-role">CTO / Master Engine</div>
-        <div style="font-size:0.78rem;color:var(--muted)">FMCSA queries · Compliance · DB reads/writes · Scheduler</div>
-      </div>
-      <div class="agent-card">
-        <div class="agent-name"><span class="status-dot shadow"></span>CEO Agent</div>
-        <div class="agent-role">Shadow Mode</div>
-        <div style="font-size:0.78rem;color:var(--muted)">Learning Delta's decisions — not yet autonomous</div>
-      </div>
+    </div>
+    <div class="input-row">
+      <input type="text" id="chat-input" placeholder="Ask about loads, carriers, fees, compliance…"/>
+      <button id="send-btn" onclick="send()">Send</button>
     </div>
   </div>
 
-  <!-- RPM Tiers + Fee Structure side by side -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:40px;" class="two-col">
-    <div class="section" style="margin:0">
-      <h2>RPM Tiers</h2>
-      <div class="rpm-tiers">
-        <div class="rpm-row">
-          <span class="rpm-label">Below $2.51</span>
-          <span class="rpm-value" style="color:var(--red)">HARD REJECT</span>
-        </div>
-        <div class="rpm-row">
-          <span class="rpm-label">$2.51 – $2.74</span>
-          <span class="rpm-value" style="color:var(--yellow)">COUNTER REQUIRED</span>
-        </div>
-        <div class="rpm-row">
-          <span class="rpm-label">$2.75 – $2.99</span>
-          <span class="rpm-value" style="color:var(--green)">ACCEPTABLE</span>
-        </div>
-        <div class="rpm-row">
-          <span class="rpm-label">$3.00+</span>
-          <span class="rpm-value" style="color:var(--accent)">EXCELLENT — PRIORITIZE</span>
-        </div>
+  <!-- RPM Tiers + Fee Structure -->
+  <div class="two-col">
+    <div>
+      <div class="section-title">RPM Tiers</div>
+      <div class="table-card">
+        <table>
+          <thead><tr><th>Rate / Mile</th><th>Decision</th></tr></thead>
+          <tbody>
+            <tr><td>Below $2.51</td><td style="color:var(--red);font-weight:700">Hard Reject</td></tr>
+            <tr><td>$2.51 – $2.74</td><td style="color:var(--yellow);font-weight:700">Counter Required</td></tr>
+            <tr><td>$2.75 – $2.99</td><td style="color:var(--green);font-weight:700">Acceptable</td></tr>
+            <tr><td>$3.00+</td><td style="color:var(--accent);font-weight:700">Prioritize</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
-    <div class="section" style="margin:0">
-      <h2>Fee Structure</h2>
-      <div class="fee-table">
+    <div>
+      <div class="section-title">Fee Structure</div>
+      <div class="table-card">
         <table>
           <thead><tr><th>Period</th><th>Fee</th></tr></thead>
           <tbody>
-            <tr><td>Trial (Days 1–7)</td><td style="color:var(--green)">FREE</td></tr>
+            <tr><td>Trial (Days 1–7)</td><td style="color:var(--green);font-weight:700">Free</td></tr>
             <tr><td>Months 1–4</td><td>8% of gross</td></tr>
             <tr><td>Month 5+ (new)</td><td>10% of gross</td></tr>
-            <tr><td>Month 5+ (OG)</td><td style="color:var(--green)">8% for life</td></tr>
+            <tr><td>OG carriers</td><td style="color:var(--green)">8% for life</td></tr>
             <tr><td>Extra services</td><td>+10% on base</td></tr>
-            <tr><td>Minimum weekly</td><td>$100 USD</td></tr>
+            <tr><td>Weekly minimum</td><td>$100</td></tr>
           </tbody>
         </table>
       </div>
@@ -237,40 +338,24 @@
   </div>
 
   <!-- Iron Rules -->
-  <div class="section">
-    <h2>Iron Rules — 11 Non-Negotiables</h2>
-    <div class="iron-rules">
-      <table>
-        <thead><tr><th>#</th><th>Rule</th><th>Trigger</th></tr></thead>
-        <tbody>
-          <tr><td>1</td><td>NO FLORIDA LOADS — ever, pickup or delivery</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>2</td><td>MIN RPM $2.51 — hard floor, never counter below</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>3</td><td>MAX DEADHEAD 50 miles / 25%</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>4</td><td>MAX WEIGHT 48,000 lbs</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>5</td><td>NO UNSATISFACTORY / CONDITIONAL safety ratings</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>6</td><td>AUTHORITY AGE 180+ DAYS minimum</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>7</td><td>FAILED FMCSA CLEARINGHOUSE → log block immediately</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>8</td><td>BLOCKED BROKER in memory_brokers → never rebook</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>9</td><td>NDS ENROLLMENT before Day 1 load ($100/yr, carrier pays)</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>10</td><td>AUTHORITY AGE VERIFIED via live FMCSA portal check</td><td class="fail">REQUIRED</td></tr>
-          <tr><td>11</td><td>NEVER RELEASE BOL before delivery confirmed</td><td class="fail">BLOCKED</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Erin Chat -->
-  <div class="section">
-    <h2>Ask Erin — AI Dispatcher</h2>
-    <div class="chat-box">
-      <div class="chat-messages" id="chat-messages">
-        <div class="chat-msg"><span class="who system">[System]</span>Verlytax OS v4 online. Erin is ready.</div>
-      </div>
-      <div class="chat-input-row">
-        <input type="text" id="chat-input" placeholder="Ask Erin anything about loads, carriers, compliance..." />
-        <button onclick="sendMessage()">Send</button>
-      </div>
-    </div>
+  <div class="section-title">Iron Rules — 11 Non-Negotiables</div>
+  <div class="rules-card">
+    <table>
+      <thead><tr><th>#</th><th>Rule</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>No Florida loads — pickup or delivery</td><td><span class="tag tag-reject">Reject</span></td></tr>
+        <tr><td>2</td><td>Min RPM $2.51 — hard floor</td><td><span class="tag tag-reject">Reject</span></td></tr>
+        <tr><td>3</td><td>Max deadhead 50 mi / 25%</td><td><span class="tag tag-reject">Reject</span></td></tr>
+        <tr><td>4</td><td>Max weight 48,000 lbs</td><td><span class="tag tag-reject">Reject</span></td></tr>
+        <tr><td>5</td><td>No Unsatisfactory / Conditional safety ratings</td><td><span class="tag tag-reject">Reject</span></td></tr>
+        <tr><td>6</td><td>Authority age 180+ days minimum</td><td><span class="tag tag-reject">Reject</span></td></tr>
+        <tr><td>7</td><td>Failed FMCSA Clearinghouse → instant block</td><td><span class="tag tag-reject">Reject</span></td></tr>
+        <tr><td>8</td><td>Blocked broker → never rebook</td><td><span class="tag tag-reject">Reject</span></td></tr>
+        <tr><td>9</td><td>NDS enrollment before Day 1 load</td><td><span class="tag tag-reject">Reject</span></td></tr>
+        <tr><td>10</td><td>Authority age verified via live FMCSA portal</td><td><span class="tag tag-req">Required</span></td></tr>
+        <tr><td>11</td><td>Never release BOL before delivery confirmed</td><td><span class="tag tag-block">Blocked</span></td></tr>
+      </tbody>
+    </table>
   </div>
 
 </main>
@@ -279,67 +364,55 @@
 
 <script>
   // Clock
-  function updateClock() {
-    document.getElementById('clock').textContent = new Date().toLocaleTimeString();
-  }
-  setInterval(updateClock, 1000);
-  updateClock();
+  const clockEl = document.getElementById('clock');
+  function tick() { clockEl.textContent = new Date().toLocaleTimeString(); }
+  setInterval(tick, 1000); tick();
 
-  // Load stats from API
-  async function loadStats() {
-    try {
-      const health = await fetch('/health').then(r => r.json());
-      // Stats would come from real API endpoints in production
-    } catch(e) {}
-  }
-  loadStats();
+  // Chat
+  const messagesEl = document.getElementById('messages');
+  const inputEl    = document.getElementById('chat-input');
+  const sendBtn    = document.getElementById('send-btn');
 
-  // Erin chat
-  async function sendMessage() {
-    const input = document.getElementById('chat-input');
-    const messages = document.getElementById('chat-messages');
-    const text = input.value.trim();
+  function addMsg(who, text, muted) {
+    const d = document.createElement('div');
+    d.className = 'msg';
+    d.innerHTML = `<div class="msg-who ${who}">${who === 'you' ? 'You' : who === 'erin' ? 'Erin' : 'System'}</div>`
+                + `<div class="msg-body${muted ? ' muted' : ''}">${escHtml(text)}</div>`;
+    messagesEl.appendChild(d);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  async function send() {
+    const text = inputEl.value.trim();
     if (!text) return;
-
-    messages.innerHTML += `<div class="chat-msg"><span class="who user">[You]</span>${escapeHtml(text)}</div>`;
-    input.value = '';
-    messages.scrollTop = messages.scrollHeight;
+    addMsg('you', text);
+    inputEl.value = '';
+    sendBtn.disabled = true;
 
     try {
-      const resp = await fetch('/erin/chat', {
+      const r = await fetch('/erin/chat', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({message: text}),
       });
-      if (resp.ok) {
-        const data = await resp.json();
-        messages.innerHTML += `<div class="chat-msg"><span class="who erin">[Erin]</span>${escapeHtml(data.reply)}</div>`;
+      if (r.ok) {
+        const d = await r.json();
+        addMsg('erin', d.reply);
       } else {
-        messages.innerHTML += `<div class="chat-msg"><span class="who system">[System]</span>Erin endpoint not yet connected — add /erin/chat route to main.py.</div>`;
+        addMsg('sys', 'Erin is offline — check ANTHROPIC_API_KEY in Railway variables.', true);
       }
-    } catch(e) {
-      messages.innerHTML += `<div class="chat-msg"><span class="who system">[System]</span>Could not reach Erin. Is the server running?</div>`;
+    } catch {
+      addMsg('sys', 'Could not reach server.', true);
     }
-    messages.scrollTop = messages.scrollHeight;
+    sendBtn.disabled = false;
+    inputEl.focus();
   }
 
-  document.getElementById('chat-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') sendMessage();
-  });
+  inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
 
-  function escapeHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
-
-  // Responsive two-col
-  function checkWidth() {
-    const twoCol = document.querySelector('.two-col');
-    if (twoCol) {
-      twoCol.style.gridTemplateColumns = window.innerWidth < 700 ? '1fr' : '1fr 1fr';
-    }
-  }
-  window.addEventListener('resize', checkWidth);
-  checkWidth();
 </script>
 </body>
 </html>
