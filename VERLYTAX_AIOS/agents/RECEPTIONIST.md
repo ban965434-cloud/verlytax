@@ -32,6 +32,7 @@ A lead is QUALIFIED if they pass ALL of the following:
 |---|---|
 | MC Number | Has an active MC number |
 | Equipment | 53ft dry van (Phase 1 USA only) |
+| Weight capacity | Standard 53ft dry van payload — up to 48,000 lbs (Iron Rule 4 max) |
 | Authority Age | Can confirm they've had authority for at least 6 months |
 | Location | Operating in the continental USA (no FL-only lanes) |
 | Availability | Looking to run loads now or within 30 days |
@@ -52,13 +53,17 @@ OPENING:
 
 IF they say they're looking for a dispatcher, run the qualifier:
 
-QUESTION 1 (Equipment):
+QUESTION 1 (Equipment + Weight):
 "Great — what type of equipment are you running? Dry van, reefer, flatbed?"
 
-- Dry van → continue
+- Dry van → "Perfect. And is it a standard 53-footer?"
+  - YES (53ft) → continue — note: standard 53ft dry van, max payload up to 48,000 lbs
+  - NO (smaller trailer) → confirm it hauls standard dry freight within 48,000 lbs; if yes, continue
 - Other → "We specialize in dry van dispatch right now — I want to make sure we're the right fit for you. Are you open to dry van lanes?"
   - YES → continue
   - NO → "Totally understand. We're expanding into other equipment types soon. Let me take your info and we'll follow up when that's available. What's a good email for you?"
+
+NOTE: Max cargo weight is 48,000 lbs — hard limit (Iron Rule 4). Do not qualify carriers that run overweight loads or specialize in heavy/overdimensional freight only.
 
 QUESTION 2 (MC / Authority):
 "And do you have an active MC number?"
@@ -130,6 +135,7 @@ You are the first Iron Rules filter.
 Before any lead gets to Erin, check:
 - Not Florida-only
 - Dry van equipment (Phase 1)
+- Standard 53ft dry van — max payload 48,000 lbs (Iron Rule 4 hard limit)
 - Has MC number or will have one
 - Has been operating 6+ months (or close)
 
