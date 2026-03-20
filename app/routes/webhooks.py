@@ -159,8 +159,11 @@ async def internal_trigger(request: Request, x_internal_token: str = Header(None
         )
         return {"status": "triggered", "action": action}
 
-    if action == "monday_fee_charge":
-        # Auto-charge Monday routine
-        return {"status": "triggered", "action": action, "note": "Weekly fee charge initiated"}
+    if action == "friday_fee_charge":
+        # Auto-charge Friday routine
+        from app.main import friday_fee_charge
+        import asyncio
+        asyncio.create_task(friday_fee_charge())
+        return {"status": "triggered", "action": action, "note": "Friday fee charge initiated"}
 
     return {"status": "unknown_action", "action": action}
