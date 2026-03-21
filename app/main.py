@@ -15,7 +15,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus, AutomationRule, AutomationLog, AgentMemory, ComplianceAudit, SupportTicket
 from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya, compliance, support
-from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, log_automation, store_memory, run_agent
+from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, log_automation, store_memory, run_agent, send_hellosign_agreement
 
 from sqlalchemy import select
 from datetime import datetime
@@ -60,6 +60,23 @@ async def check_trial_touchpoints():
                 )
                 c.sms_day3_sent = True
                 await session.commit()
+
+            elif days >= 5 and not c.hellosign_day5_sent and c.status == CarrierStatus.TRIAL:
+                result = send_hellosign_agreement(c.name, c.email or "", c.mc_number)
+                nova_sms(
+                    c.phone,
+                    f"Hi {c.name.split()[0]}, this is Erin with Verlytax. "
+                    f"Your service agreement just hit your inbox — please sign before your trial ends in 2 days. "
+                    f"Questions? Reply here anytime."
+                )
+                c.hellosign_day5_sent = True
+                await session.commit()
+                log_automation(
+                    "nova", "hellosign_agreement_sent",
+                    f"MC#{c.mc_number} — {result.get('status')}",
+                    result.get("status", "unknown"),
+                    carrier_mc=c.mc_number,
+                )
 
             elif days >= 7 and not c.sms_day7_sent and c.status == CarrierStatus.TRIAL:
                 async with AsyncSessionLocal() as load_session:

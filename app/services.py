@@ -31,7 +31,15 @@ try:
 except Exception:
     stripe = None  # type: ignore
 
+try:
+    import dropbox_sign
+    from dropbox_sign import ApiClient, ApiException, Configuration, apis, models
+    _hellosign_cfg = Configuration(username=os.getenv("HELLOSIGN_API_KEY", ""))
+    _hellosign = True
+except Exception:
+    _hellosign = False
 
+HELLOSIGN_TEMPLATE_ID = os.getenv("HELLOSIGN_TEMPLATE_ID", "")
 CEO_PHONE = os.getenv("CEO_PHONE", "")
 INTERNAL_TOKEN = os.getenv("INTERNAL_TOKEN", "")
 
@@ -65,10 +73,54 @@ def nova_day1_carrier_packet(carrier_phone: str, carrier_name: str, mc_number: s
     body = (
         f"Hi {carrier_name}! This is Erin with Verlytax Operations. "
         f"Welcome aboard! Your carrier packet is ready. "
-        f"MC#{mc_number} — please check your email for the DocuSign agreement and next steps. "
+        f"MC#{mc_number} — your service agreement arrives on Day 5. "
         f"Questions? Reply here or email ops@verlytax.com"
     )
     return nova_sms(carrier_phone, body)
+
+
+# ── HelloSign / Dropbox Sign (Day 5 trial agreement) ─────────────────────────
+
+def send_hellosign_agreement(carrier_name: str, carrier_email: str, mc_number: str) -> dict:
+    """
+    Send the Verlytax service agreement via HelloSign (Dropbox Sign) at Day 5 of trial.
+    Uses a pre-built template — set HELLOSIGN_TEMPLATE_ID in .env.
+    """
+    if not _hellosign:
+        return {"status": "skipped", "reason": "dropbox-sign not configured"}
+    if not HELLOSIGN_TEMPLATE_ID:
+        return {"status": "skipped", "reason": "HELLOSIGN_TEMPLATE_ID not set"}
+    if not carrier_email:
+        return {"status": "skipped", "reason": "carrier has no email on file"}
+
+    try:
+        with ApiClient(_hellosign_cfg) as api_client:
+            signature_api = apis.SignatureRequestApi(api_client)
+            signer = models.SubSignatureRequestTemplateSigner(
+                role="Carrier",
+                email_address=carrier_email,
+                name=carrier_name,
+            )
+            custom_fields = [
+                models.SubCustomField(name="mc_number", value=f"MC#{mc_number}"),
+                models.SubCustomField(name="carrier_name", value=carrier_name),
+            ]
+            data = models.SignatureRequestSendWithTemplateRequest(
+                template_ids=[HELLOSIGN_TEMPLATE_ID],
+                subject="Verlytax Dispatch Services Agreement — Action Required",
+                message=(
+                    f"Hi {carrier_name.split()[0]}, your Verlytax service agreement is ready to sign. "
+                    f"Please review and sign before your 7-day trial ends. "
+                    f"Questions? Reply to ops@verlytax.com"
+                ),
+                signers=[signer],
+                custom_fields=custom_fields,
+            )
+            response = signature_api.signature_request_send_with_template(data)
+            request_id = response.signature_request.signature_request_id
+            return {"status": "sent", "signature_request_id": request_id}
+    except Exception as e:
+        return {"status": "error", "reason": str(e)}
 
 
 # ── Erin (Claude AI Dispatcher) ───────────────────────────────────────────────

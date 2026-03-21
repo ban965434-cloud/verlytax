@@ -156,7 +156,7 @@ async def activate_trial(mc_number: str, db: AsyncSession = Depends(get_db)):
         "drive_folder": drive_result,
         "next_steps": [
             "Day 3: Mid-trial check-in",
-            "Day 5: DocuSign service agreement sent",
+            "Day 5: HelloSign service agreement sent to carrier email",
             "Day 7: Trial results + convert offer",
         ],
     }

@@ -89,8 +89,9 @@ class Carrier(Base):
     stripe_customer_id = Column(String)
     stripe_payment_method = Column(String)
 
-    # Trial touchpoint tracking (prevents duplicate SMS)
+    # Trial touchpoint tracking (prevents duplicate SMS / sends)
     sms_day3_sent = Column(Boolean, default=False)
+    hellosign_day5_sent = Column(Boolean, default=False)  # Day 5: service agreement via HelloSign
     sms_day7_sent = Column(Boolean, default=False)
     sms_day14_sent = Column(Boolean, default=False)
     sms_day30_sent = Column(Boolean, default=False)
