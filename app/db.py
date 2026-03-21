@@ -175,6 +175,37 @@ class EscalationLog(Base):
     resolved_at = Column(DateTime)
 
 
+class AgentMemory(Base):
+    """
+    Mya's long-term memory engine.
+    Every agent reads and writes here — it's the shared intelligence layer.
+    Mya synthesizes daily learnings; Delta can manually teach it directly.
+    """
+    __tablename__ = "agent_memories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent = Column(String, nullable=False, index=True)        # "mya", "erin", "delta", etc.
+    memory_type = Column(String, nullable=False, index=True)  # see types below
+    carrier_mc = Column(String, index=True)                   # NULL = global; set = carrier-specific
+    subject = Column(String)                                  # short title / label
+    content = Column(Text, nullable=False)                    # the full memory text
+    importance = Column(Integer, default=3)                   # 1=low, 3=normal, 5=critical
+    source = Column(String, default="auto")                   # "auto" (Mya learned it) | "delta" (manually taught)
+    recall_count = Column(Integer, default=0)                 # times this memory was pulled into agent context
+    last_recalled = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# Memory types:
+# "carrier_profile"     — patterns about a specific carrier (payment, lanes, reliability)
+# "lane_insight"        — which lanes / regions are profitable or problematic
+# "broker_insight"      — broker payment speed, reliability, dispute history
+# "interaction_outcome" — what SMS/call approaches worked or failed
+# "business_rule"       — custom rules Delta has taught Mya
+# "decision_pattern"    — decisions Delta made that Mya should replicate
+# "business_insight"    — high-level business intelligence synthesized by Mya
+
+
 class AutomationLog(Base):
     """Audit trail for every autonomous action taken by Brain, Erin, or any agent."""
     __tablename__ = "automation_logs"
@@ -210,6 +241,7 @@ DEFAULT_AUTOMATION_RULES = [
     ("overdue_load_scan",     "Daily scan for loads in-transit past delivery date by 24+ hours"),
     ("stale_lead_scan",       "Daily scan for leads with no activity in 14+ days — alerts Delta"),
     ("no_load_carrier_scan",  "Daily scan for active carriers with no loads in 14+ days — Erin check-in SMS"),
+    ("mya_learn",             "Daily 6 AM — Mya synthesizes load/dispute data into AgentMemory learnings"),
 ]
 
 

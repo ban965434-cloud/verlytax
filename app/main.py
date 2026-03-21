@@ -13,9 +13,9 @@ from pydantic import BaseModel
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus, AutomationRule, AutomationLog
-from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows
-from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, log_automation
+from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus, AutomationRule, AutomationLog, AgentMemory
+from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya
+from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, log_automation, store_memory, run_agent
 
 from sqlalchemy import select
 from datetime import datetime
@@ -477,6 +477,77 @@ async def brain_autonomous_scan():
                 )
 
 
+async def mya_learn():
+    """
+    Daily at 6:00 AM UTC — Mya analyzes recent data and stores learnings.
+    Synthesizes load outcomes, carrier behavior, disputes into AgentMemory.
+    Rule key: mya_learn
+    """
+    if not await _rule_enabled("mya_learn"):
+        return
+
+    from datetime import timedelta
+    now = datetime.utcnow()
+    yesterday = now - timedelta(hours=24)
+
+    async with AsyncSessionLocal() as session:
+        loads_result = await session.execute(
+            select(Load).where(Load.created_at >= yesterday)
+        )
+        recent_loads = loads_result.scalars().all()
+
+        from app.db import EscalationLog
+        esc_result = await session.execute(
+            select(EscalationLog).where(EscalationLog.created_at >= yesterday)
+        )
+        recent_escalations = esc_result.scalars().all()
+
+    if not recent_loads and not recent_escalations:
+        return  # Nothing happened today — nothing to learn
+
+    # Build data summary for Mya to analyze
+    lines = [f"Analysis date: {now.strftime('%Y-%m-%d')}"]
+    lines.append(f"Loads in last 24h: {len(recent_loads)}")
+    for load in recent_loads:
+        lines.append(
+            f"  Load #{load.id}: {load.origin_state or '?'}→{load.destination_state or '?'} "
+            f"${load.rate_total or 0:.0f} RPM:${load.rate_per_mile or 0:.2f} "
+            f"Weight:{load.weight_lbs or 0:.0f}lbs Status:{load.status} MC:{load.carrier_mc}"
+        )
+    if recent_escalations:
+        lines.append(f"\nEscalations/Disputes: {len(recent_escalations)}")
+        for esc in recent_escalations:
+            lines.append(
+                f"  MC#{esc.carrier_mc}: {esc.issue_type} — {(esc.description or '')[:120]}"
+            )
+
+    summary = "\n".join(lines)
+    prompt = (
+        "Analyze this operational data from the past 24 hours. "
+        "Identify 1–3 important patterns, risks, or insights worth remembering. "
+        "Format each as: Pattern / Evidence / Implication / Recommended action. "
+        "Be concise and specific. Only flag things that actually matter."
+    )
+
+    insights = await asyncio.to_thread(run_agent, "MYA.md", prompt, summary)
+
+    if insights and "[Agent" not in insights:
+        store_memory(
+            agent="mya",
+            memory_type="business_insight",
+            subject=f"Daily learning — {now.strftime('%Y-%m-%d')}",
+            content=insights,
+            importance=3,
+            source="auto",
+        )
+        log_automation(
+            agent="mya",
+            action_type="daily_learning",
+            description=f"Mya synthesized insights from {len(recent_loads)} loads, {len(recent_escalations)} escalations",
+            result="stored",
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -525,6 +596,12 @@ async def lifespan(app: FastAPI):
         id="brain_autonomous_scan",
         replace_existing=True,
     )
+    scheduler.add_job(
+        mya_learn,
+        CronTrigger(hour=6, minute=0, timezone="UTC"),
+        id="mya_learn",
+        replace_existing=True,
+    )
     scheduler.start()
 
     yield
@@ -555,6 +632,7 @@ app.include_router(carriers.router, prefix="/carriers", tags=["Carriers"])
 app.include_router(brain.router, prefix="/brain", tags=["Brain"])
 app.include_router(agents.router, prefix="/agents", tags=["Agents"])
 app.include_router(workflows.router, prefix="/workflows", tags=["Workflows"])
+app.include_router(mya.router, prefix="/mya", tags=["Mya"])
 
 
 @app.get("/", response_class=HTMLResponse)
