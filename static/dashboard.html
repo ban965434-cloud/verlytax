@@ -599,6 +599,39 @@
       <div class="agent-status live"></div>
     </div>
 
+    <!-- AUTOMATIONS -->
+    <div class="section-label">Automations <span class="count">1</span></div>
+
+    <div class="agent-item" data-agent="brain" onclick="selectAgent('brain')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#06b6d4 0%,#0284c7 100%);">⚙</div>
+      <div class="agent-info">
+        <div class="agent-name">Brain</div>
+        <div class="agent-role">AI Automation Engine</div>
+      </div>
+      <div class="agent-status live"></div>
+    </div>
+
+    <!-- MARKETING -->
+    <div class="section-label">Marketing <span class="count">2</span></div>
+
+    <div class="agent-item" data-agent="meta" onclick="selectAgent('meta')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#1877f2 0%,#0c5dc7 100%);">f</div>
+      <div class="agent-info">
+        <div class="agent-name">Meta Ads</div>
+        <div class="agent-role">Facebook &amp; Instagram Ads</div>
+      </div>
+      <div class="agent-status ready"></div>
+    </div>
+
+    <div class="agent-item" data-agent="google" onclick="selectAgent('google')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#ea4335 0%,#fbbc05 50%,#34a853 100%);">G</div>
+      <div class="agent-info">
+        <div class="agent-name">Google Ads</div>
+        <div class="agent-role">Search &amp; Display Campaigns</div>
+      </div>
+      <div class="agent-status ready"></div>
+    </div>
+
     <!-- ACQUISITION -->
     <div class="section-label">Acquisition <span class="count">2</span></div>
 
@@ -768,6 +801,58 @@ const AGENTS = {
       'Draft a follow-up SMS for a warm lead',
       'When should I use Dan vs. Megan?',
       'Show me Dan\'s tone and style',
+    ],
+    canChat: false,
+    showStats: false,
+  },
+  brain: {
+    name: 'Brain',
+    role: 'AI Automation Engine',
+    detail: 'Automation Engine — 6 cron jobs, FMCSA checks, autonomous scans, governance rules',
+    avatar: '⚙',
+    color: 'linear-gradient(135deg,#06b6d4 0%,#0284c7 100%)',
+    badge: 'live',
+    desc: 'Brain runs all automated operations: COI expiry checks, Friday fee charges, FMCSA annual re-checks, trial touchpoints, and the autonomous daily scan. Toggle any rule on or off.',
+    actions: [
+      'Show me all automation rules',
+      'View the automation log',
+      'What SOPs are loaded?',
+      'Toggle the stale lead scan',
+      'Run an FMCSA lookup',
+    ],
+    canChat: false,
+    showStats: true,
+  },
+  meta: {
+    name: 'Meta Ads',
+    role: 'Facebook & Instagram Ads',
+    detail: 'Paid Social — Meta ad campaigns targeting owner-operators and small fleets',
+    avatar: 'f',
+    color: 'linear-gradient(135deg,#1877f2 0%,#0c5dc7 100%)',
+    badge: 'ready',
+    desc: 'Meta Ads agent manages Facebook and Instagram campaigns to attract owner-operators. Targets truckers by location, CDL interest, and fleet size — filling your lead pipeline on autopilot.',
+    actions: [
+      'Draft a Meta ad for owner-operators',
+      'What audience should I target for truckers?',
+      'Suggest a campaign for flatbed carriers',
+      'What budget should I start with?',
+    ],
+    canChat: false,
+    showStats: false,
+  },
+  google: {
+    name: 'Google Ads',
+    role: 'Search & Display Campaigns',
+    detail: 'Paid Search — Google ad campaigns targeting truckers searching for dispatch services',
+    avatar: 'G',
+    color: 'linear-gradient(135deg,#ea4335 0%,#fbbc05 50%,#34a853 100%)',
+    badge: 'ready',
+    desc: 'Google Ads agent runs search campaigns capturing truckers actively searching "dispatch service" and "freight dispatcher." High-intent leads — these carriers are already looking.',
+    actions: [
+      'Suggest keywords for dispatch services',
+      'Draft a Google search ad for owner-operators',
+      'What\'s a good target CPC for trucking?',
+      'Build a campaign for reefer carriers',
     ],
     canChat: false,
     showStats: false,
