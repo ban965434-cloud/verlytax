@@ -1,345 +1,1021 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Verlytax OS v4 — Operations Dashboard</title>
+  <title>Verlytax OS v4</title>
   <style>
     :root {
-      --bg: #0a0a0f;
-      --card: #13131a;
+      --bg: #0d0d14;
+      --sidebar: #111118;
+      --sidebar-border: #1c1c28;
+      --card: #16161f;
+      --card-hover: #1c1c28;
       --border: #1e1e2e;
-      --accent: #6c63ff;
+      --accent: #7c6fff;
+      --accent-soft: rgba(124,111,255,0.12);
+      --accent-glow: rgba(124,111,255,0.25);
       --green: #22c55e;
+      --green-soft: rgba(34,197,94,0.12);
       --red: #ef4444;
       --yellow: #eab308;
       --text: #e2e8f0;
-      --muted: #64748b;
+      --text-secondary: #94a3b8;
+      --muted: #475569;
+      --input-bg: #1a1a26;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
-
-    header {
-      background: var(--card);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 32px;
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      height: 100vh;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.05em; }
-    header h1 span { color: var(--accent); }
-    .badge { background: var(--green); color: #000; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 99px; text-transform: uppercase; }
-
-    main { padding: 32px; max-width: 1200px; margin: 0 auto; }
-
-    .tagline { color: var(--muted); font-size: 0.9rem; margin-bottom: 32px; }
-
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
-
-    .stat-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-    }
-    .stat-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-    .stat-card .value { font-size: 2rem; font-weight: 700; }
-    .stat-card .value.green { color: var(--green); }
-    .stat-card .value.yellow { color: var(--yellow); }
-    .stat-card .value.red { color: var(--red); }
-    .stat-card .sub { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
-
-    h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-
-    .section { margin-bottom: 40px; }
-
-    .iron-rules {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
       overflow: hidden;
     }
-    .iron-rules table { width: 100%; border-collapse: collapse; }
-    .iron-rules th { background: #1a1a2e; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; padding: 12px 16px; text-align: left; }
-    .iron-rules td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.85rem; }
-    .iron-rules td:first-child { color: var(--accent); font-weight: 700; width: 40px; }
-    .pass { color: var(--green); font-size: 0.75rem; font-weight: 700; }
-    .fail { color: var(--red); font-size: 0.75rem; font-weight: 700; }
 
-    .agent-stack {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    /* ── SIDEBAR ─────────────────────────────────────────────── */
+    .sidebar {
+      width: 260px;
+      min-width: 260px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--sidebar-border);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid var(--sidebar-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .brand span { color: var(--accent); }
+    .brand-tag {
+      font-size: 0.6rem;
+      color: var(--muted);
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .search-wrap {
+      padding: 12px 12px 8px;
+    }
+    .search-wrap input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-wrap input::placeholder { color: var(--muted); }
+    .search-wrap input:focus { border-color: var(--accent); }
+
+    .sidebar-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0 16px;
+    }
+    .sidebar-scroll::-webkit-scrollbar { width: 3px; }
+    .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .section-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 12px 16px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .section-label .count {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 1px 7px;
+      font-size: 0.6rem;
+    }
+
+    .agent-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      margin: 0 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+    }
+    .agent-item:hover {
+      background: var(--card-hover);
+    }
+    .agent-item.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-glow);
+    }
+    .agent-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .agent-info { flex: 1; min-width: 0; }
+    .agent-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .agent-role {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .agent-status {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .agent-status.live { background: var(--green); box-shadow: 0 0 5px var(--green); }
+    .agent-status.ready { background: var(--yellow); }
+    .agent-status.shadow { background: var(--muted); }
+
+    .sidebar-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--sidebar-border);
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    /* ── MAIN PANEL ──────────────────────────────────────────── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .top-bar {
+      background: var(--sidebar);
+      border-bottom: 1px solid var(--sidebar-border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .top-bar .agent-avatar { width: 38px; height: 38px; border-radius: 11px; font-size: 1.1rem; }
+    .top-bar-info { flex: 1; }
+    .top-bar-name { font-size: 1rem; font-weight: 700; }
+    .top-bar-role { font-size: 0.75rem; color: var(--text-secondary); }
+    .top-bar-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .badge-live { background: var(--green-soft); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+    .badge-ready { background: rgba(234,179,8,0.12); color: var(--yellow); border: 1px solid rgba(234,179,8,0.3); }
+    .badge-shadow { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+
+    /* Welcome / landing state */
+    .welcome-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 32px;
+      text-align: center;
+    }
+    .welcome-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      margin-bottom: 24px;
+    }
+    .welcome-name { font-size: 1.8rem; font-weight: 800; margin-bottom: 4px; }
+    .welcome-role { font-size: 1rem; color: var(--text-secondary); margin-bottom: 8px; }
+    .welcome-desc { font-size: 0.88rem; color: var(--text-secondary); max-width: 420px; margin-bottom: 36px; line-height: 1.6; }
+
+    .quick-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 440px;
+    }
+    .quick-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 18px;
+      color: var(--text);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: left;
+    }
+    .quick-btn:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent-glow);
+      color: #c4bfff;
+    }
+
+    /* Chat interface */
+    .chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
       gap: 16px;
     }
-    .agent-card {
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .msg { display: flex; gap: 10px; max-width: 75%; }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg .bubble {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 0.875rem;
+      line-height: 1.6;
     }
-    .agent-card .agent-name { font-weight: 700; margin-bottom: 4px; }
-    .agent-card .agent-role { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; }
-    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-    .status-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .status-dot.shadow { background: var(--yellow); }
+    .msg.user .bubble {
+      background: var(--accent-soft);
+      border-color: var(--accent-glow);
+    }
+    .msg .msg-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .msg-time { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
 
-    .rpm-tiers {
-      background: var(--card);
+    .typing-indicator {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      padding: 12px 16px;
+    }
+    .typing-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      animation: typing 1.2s infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing {
+      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1); }
+    }
+
+    .chat-input-wrap {
+      padding: 16px 24px 20px;
+      border-top: 1px solid var(--sidebar-border);
+      background: var(--sidebar);
+    }
+    .chat-input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .chat-input {
+      flex: 1;
+      background: var(--input-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 20px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 0.875rem;
+      resize: none;
+      outline: none;
+      min-height: 44px;
+      max-height: 120px;
+      font-family: inherit;
+      line-height: 1.5;
+      transition: border-color 0.2s;
     }
-    .rpm-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
-    .rpm-row:last-child { border-bottom: none; }
-    .rpm-label { color: var(--muted); }
-    .rpm-value { font-weight: 700; }
+    .chat-input::placeholder { color: var(--muted); }
+    .chat-input:focus { border-color: var(--accent); }
+    .chat-input.listening {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.15);
+    }
 
-    .fee-table { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-    .fee-table table { width: 100%; border-collapse: collapse; }
-    .fee-table th { background: #1a1a2e; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; padding: 12px 16px; text-align: left; }
-    .fee-table td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.85rem; }
-
-    .chat-box {
+    .voice-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.15s;
+      font-size: 1.1rem;
+      position: relative;
     }
-    .chat-messages { padding: 20px; min-height: 150px; max-height: 300px; overflow-y: auto; }
-    .chat-msg { margin-bottom: 12px; font-size: 0.85rem; }
-    .chat-msg .who { font-weight: 700; margin-right: 6px; }
-    .chat-msg .who.erin { color: var(--accent); }
-    .chat-msg .who.user { color: var(--green); }
-    .chat-msg .who.system { color: var(--muted); }
-    .chat-input-row { display: flex; border-top: 1px solid var(--border); }
-    .chat-input-row input {
-      flex: 1; background: transparent; border: none; outline: none;
-      color: var(--text); padding: 14px 16px; font-size: 0.85rem;
+    .voice-btn:hover { background: var(--card-hover); border-color: var(--accent); color: var(--accent); }
+    .voice-btn.recording {
+      background: rgba(239,68,68,0.12);
+      border-color: rgba(239,68,68,0.5);
+      color: #ef4444;
     }
-    .chat-input-row button {
-      background: var(--accent); border: none; color: #fff;
-      padding: 14px 20px; cursor: pointer; font-weight: 700; font-size: 0.85rem;
+    .voice-btn.recording::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 14px;
+      border: 2px solid rgba(239,68,68,0.4);
+      animation: voicePulse 1s infinite;
     }
-    .chat-input-row button:hover { opacity: 0.9; }
+    @keyframes voicePulse {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.3); opacity: 0; }
+    }
 
-    footer { text-align: center; color: var(--muted); font-size: 0.75rem; padding: 32px; border-top: 1px solid var(--border); margin-top: 40px; }
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: opacity 0.15s;
+      font-size: 1rem;
+    }
+    .send-btn:hover { opacity: 0.85; }
+    .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .voice-status {
+      font-size: 0.72rem;
+      color: #ef4444;
+      text-align: center;
+      margin-top: 6px;
+      height: 16px;
+      transition: opacity 0.2s;
+    }
+    .voice-status.hidden { opacity: 0; }
+
+    /* Stats strip */
+    .stats-strip {
+      display: flex;
+      gap: 1px;
+      background: var(--sidebar-border);
+      border-top: 1px solid var(--sidebar-border);
+    }
+    .stat-pill {
+      flex: 1;
+      background: var(--sidebar);
+      padding: 10px 16px;
+      text-align: center;
+    }
+    .stat-pill .sv { font-size: 1.3rem; font-weight: 800; }
+    .stat-pill .sl { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .sv.green { color: var(--green); }
+    .sv.yellow { color: var(--yellow); }
+    .sv.purple { color: var(--accent); }
+    .sv.red { color: var(--red); }
+
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-<header>
-  <h1><span>VERLYTAX</span> OS v4</h1>
-  <div style="display:flex;align-items:center;gap:16px;">
-    <span class="badge">Phase 1 USA Active</span>
-    <span style="font-size:0.8rem;color:var(--muted)" id="clock"></span>
-  </div>
-</header>
-
-<main>
-  <p class="tagline">"You drive. We handle the rest." — AI-Native Freight Dispatch | CEO: Delta</p>
-
-  <!-- Stats -->
-  <div class="grid" id="stats-grid">
-    <div class="stat-card">
-      <div class="label">Active Carriers</div>
-      <div class="value green" id="stat-active">—</div>
-      <div class="sub">Phase 1 USA goal: 30–50</div>
+<!-- ── SIDEBAR ──────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div>
+      <div class="brand">Verlytax<span>OS</span></div>
+      <div class="brand-tag">v4 · AI Freight Dispatch</div>
     </div>
-    <div class="stat-card">
-      <div class="label">Loads In Transit</div>
-      <div class="value yellow" id="stat-transit">—</div>
-      <div class="sub">Check in every 2–4 hrs</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Fees Collected (MTD)</div>
-      <div class="value green" id="stat-fees">—</div>
-      <div class="sub">Gross first, always</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Open Escalations</div>
-      <div class="value red" id="stat-esc">—</div>
-      <div class="sub">48hr auto-escalate to Delta</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Min RPM</div>
-      <div class="value" style="color:var(--accent)">$2.51</div>
-      <div class="sub">Iron Rule 2 — hard floor</div>
-    </div>
+    <div class="status-dot" title="System Live"></div>
   </div>
 
-  <!-- Agent Stack -->
-  <div class="section">
-    <h2>Agent Stack</h2>
-    <div class="agent-stack">
-      <div class="agent-card">
-        <div class="agent-name"><span class="status-dot active"></span>Erin</div>
+  <div class="search-wrap">
+    <input type="text" id="agentSearch" placeholder="Search agents... (⌘K)" onkeyup="filterAgents(this.value)" autocomplete="off"/>
+  </div>
+
+  <div class="sidebar-scroll">
+
+    <!-- OPERATIONS -->
+    <div class="section-label">Operations <span class="count">3</span></div>
+
+    <div class="agent-item active" data-agent="erin" onclick="selectAgent('erin')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#6c63ff 0%,#4f46e5 100%);">E</div>
+      <div class="agent-info">
+        <div class="agent-name">Erin</div>
         <div class="agent-role">AI Dispatcher</div>
-        <div style="font-size:0.78rem;color:var(--muted)">Load booking · Carrier comms · Billing · Disputes</div>
       </div>
-      <div class="agent-card">
-        <div class="agent-name"><span class="status-dot active"></span>Nova</div>
-        <div class="agent-role">Executive Assistant</div>
-        <div style="font-size:0.78rem;color:var(--muted)">Delta SMS · Escalations · Day 1 carrier packet · Fee alerts</div>
-      </div>
-      <div class="agent-card">
-        <div class="agent-name"><span class="status-dot active"></span>Brain</div>
-        <div class="agent-role">CTO / Master Engine</div>
-        <div style="font-size:0.78rem;color:var(--muted)">FMCSA queries · Compliance · DB reads/writes · Scheduler</div>
-      </div>
-      <div class="agent-card">
-        <div class="agent-name"><span class="status-dot shadow"></span>CEO Agent</div>
-        <div class="agent-role">Shadow Mode</div>
-        <div style="font-size:0.78rem;color:var(--muted)">Learning Delta's decisions — not yet autonomous</div>
-      </div>
+      <div class="agent-status live"></div>
     </div>
+
+    <div class="agent-item" data-agent="nova" onclick="selectAgent('nova')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#f59e0b 0%,#d97706 100%);">N</div>
+      <div class="agent-info">
+        <div class="agent-name">Nova</div>
+        <div class="agent-role">CEO Executive Assistant</div>
+      </div>
+      <div class="agent-status live"></div>
+    </div>
+
+    <div class="agent-item" data-agent="brain" onclick="selectAgent('brain')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#06b6d4 0%,#0284c7 100%);">B</div>
+      <div class="agent-info">
+        <div class="agent-name">Brain</div>
+        <div class="agent-role">Master Engine</div>
+      </div>
+      <div class="agent-status live"></div>
+    </div>
+
+    <!-- ACQUISITION -->
+    <div class="section-label">Acquisition <span class="count">3</span></div>
+
+    <div class="agent-item" data-agent="receptionist" onclick="selectAgent('receptionist')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#10b981 0%,#059669 100%);">R</div>
+      <div class="agent-info">
+        <div class="agent-name">Receptionist</div>
+        <div class="agent-role">Inbound Qualifier</div>
+      </div>
+      <div class="agent-status live"></div>
+    </div>
+
+    <div class="agent-item" data-agent="megan" onclick="selectAgent('megan')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#ec4899 0%,#db2777 100%);">M</div>
+      <div class="agent-info">
+        <div class="agent-name">Megan</div>
+        <div class="agent-role">Outbound SDR</div>
+      </div>
+      <div class="agent-status live"></div>
+    </div>
+
+    <div class="agent-item" data-agent="dan" onclick="selectAgent('dan')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%);">D</div>
+      <div class="agent-info">
+        <div class="agent-name">Dan</div>
+        <div class="agent-role">Outbound SDR (B-voice)</div>
+      </div>
+      <div class="agent-status live"></div>
+    </div>
+
+    <!-- CEO -->
+    <div class="section-label">CEO <span class="count">1</span></div>
+
+    <div class="agent-item" data-agent="delta" onclick="selectAgent('delta')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#f97316 0%,#ea580c 100%);">Δ</div>
+      <div class="agent-info">
+        <div class="agent-name">Delta</div>
+        <div class="agent-role">CEO · Owner</div>
+      </div>
+      <div class="agent-status shadow"></div>
+    </div>
+
   </div>
 
-  <!-- RPM Tiers + Fee Structure side by side -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:40px;" class="two-col">
-    <div class="section" style="margin:0">
-      <h2>RPM Tiers</h2>
-      <div class="rpm-tiers">
-        <div class="rpm-row">
-          <span class="rpm-label">Below $2.51</span>
-          <span class="rpm-value" style="color:var(--red)">HARD REJECT</span>
-        </div>
-        <div class="rpm-row">
-          <span class="rpm-label">$2.51 – $2.74</span>
-          <span class="rpm-value" style="color:var(--yellow)">COUNTER REQUIRED</span>
-        </div>
-        <div class="rpm-row">
-          <span class="rpm-label">$2.75 – $2.99</span>
-          <span class="rpm-value" style="color:var(--green)">ACCEPTABLE</span>
-        </div>
-        <div class="rpm-row">
-          <span class="rpm-label">$3.00+</span>
-          <span class="rpm-value" style="color:var(--accent)">EXCELLENT — PRIORITIZE</span>
-        </div>
-      </div>
+  <div class="sidebar-footer">CEO: Delta &nbsp;·&nbsp; "You drive. We handle the rest."</div>
+</aside>
+
+<!-- ── MAIN PANEL ─────────────────────────────────────────── -->
+<div class="main" id="mainPanel">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="agent-avatar" id="tbAvatar" style="background: linear-gradient(135deg,#6c63ff 0%,#4f46e5 100%);">E</div>
+    <div class="top-bar-info">
+      <div class="top-bar-name" id="tbName">Erin</div>
+      <div class="top-bar-role" id="tbRole">AI Dispatcher — load booking, carrier comms, billing, compliance</div>
     </div>
-    <div class="section" style="margin:0">
-      <h2>Fee Structure</h2>
-      <div class="fee-table">
-        <table>
-          <thead><tr><th>Period</th><th>Fee</th></tr></thead>
-          <tbody>
-            <tr><td>Trial (Days 1–7)</td><td style="color:var(--green)">FREE</td></tr>
-            <tr><td>Months 1–4</td><td>8% of gross</td></tr>
-            <tr><td>Month 5+ (new)</td><td>10% of gross</td></tr>
-            <tr><td>Month 5+ (OG)</td><td style="color:var(--green)">8% for life</td></tr>
-            <tr><td>Extra services</td><td>+10% on base</td></tr>
-            <tr><td>Minimum weekly</td><td>$100 USD</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <span class="top-bar-badge badge-live" id="tbBadge">Live</span>
   </div>
 
-  <!-- Iron Rules -->
-  <div class="section">
-    <h2>Iron Rules — 11 Non-Negotiables</h2>
-    <div class="iron-rules">
-      <table>
-        <thead><tr><th>#</th><th>Rule</th><th>Trigger</th></tr></thead>
-        <tbody>
-          <tr><td>1</td><td>NO FLORIDA LOADS — ever, pickup or delivery</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>2</td><td>MIN RPM $2.51 — hard floor, never counter below</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>3</td><td>MAX DEADHEAD 50 miles / 25%</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>4</td><td>MAX WEIGHT 48,000 lbs</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>5</td><td>NO UNSATISFACTORY / CONDITIONAL safety ratings</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>6</td><td>AUTHORITY AGE 180+ DAYS minimum</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>7</td><td>FAILED FMCSA CLEARINGHOUSE → log block immediately</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>8</td><td>BLOCKED BROKER in memory_brokers → never rebook</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>9</td><td>NDS ENROLLMENT before Day 1 load ($100/yr, carrier pays)</td><td class="fail">AUTO REJECT</td></tr>
-          <tr><td>10</td><td>AUTHORITY AGE VERIFIED via live FMCSA portal check</td><td class="fail">REQUIRED</td></tr>
-          <tr><td>11</td><td>NEVER RELEASE BOL before delivery confirmed</td><td class="fail">BLOCKED</td></tr>
-        </tbody>
-      </table>
-    </div>
+  <!-- Stats strip -->
+  <div class="stats-strip" id="statsStrip">
+    <div class="stat-pill"><div class="sv green" id="statActive">—</div><div class="sl">Active Trucks</div></div>
+    <div class="stat-pill"><div class="sv yellow" id="statTrial">—</div><div class="sl">In Trial</div></div>
+    <div class="stat-pill"><div class="sv purple" id="statLeads">—</div><div class="sl">Leads</div></div>
+    <div class="stat-pill"><div class="sv red" id="statSuspended">—</div><div class="sl">Suspended</div></div>
   </div>
 
-  <!-- Erin Chat -->
-  <div class="section">
-    <h2>Ask Erin — AI Dispatcher</h2>
-    <div class="chat-box">
-      <div class="chat-messages" id="chat-messages">
-        <div class="chat-msg"><span class="who system">[System]</span>Verlytax OS v4 online. Erin is ready.</div>
-      </div>
+  <!-- Welcome / agent landing -->
+  <div class="welcome-panel" id="welcomePanel">
+    <div class="welcome-avatar" id="wAvatar" style="background: linear-gradient(135deg,#6c63ff 0%,#4f46e5 100%);">E</div>
+    <div class="welcome-name" id="wName">Erin</div>
+    <div class="welcome-role" id="wRole">AI Dispatcher</div>
+    <div class="welcome-desc" id="wDesc">Your dedicated dispatch engine. I handle load booking, carrier comms, billing, and compliance — so you never have to.</div>
+    <div class="quick-actions" id="quickActions"></div>
+  </div>
+
+  <!-- Chat panel -->
+  <div class="chat-panel hidden" id="chatPanel">
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-wrap">
       <div class="chat-input-row">
-        <input type="text" id="chat-input" placeholder="Ask Erin anything about loads, carriers, compliance..." />
-        <button onclick="sendMessage()">Send</button>
+        <textarea class="chat-input" id="chatInput" placeholder="Message Erin..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice input — click to speak">🎙</button>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">&#10148;</button>
       </div>
+      <div class="voice-status hidden" id="voiceStatus">● Listening… speak now</div>
     </div>
   </div>
 
-</main>
-
-<footer>Verlytax OS v4 · CEO: Delta · Built with Claude Code · Phase 1 USA Active</footer>
+</div>
 
 <script>
-  // Clock
-  function updateClock() {
-    document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+const AGENTS = {
+  erin: {
+    name: 'Erin',
+    role: 'AI Dispatcher',
+    detail: 'AI Dispatcher — load booking, carrier comms, billing, compliance',
+    avatar: 'E',
+    color: 'linear-gradient(135deg,#6c63ff 0%,#4f46e5 100%)',
+    badge: 'live',
+    desc: 'Your dedicated dispatch engine. I handle load booking, carrier comms, billing, and compliance — so you never have to.',
+    actions: [
+      'Book a load for a carrier',
+      'Check if a load passes Iron Rules',
+      'What are the active carrier fees right now?',
+      'How do I release a BOL?',
+      'Show me the load booking checklist',
+    ],
+    chatEndpoint: '/erin/chat',
+    canChat: true,
+    showStats: true,
+  },
+  nova: {
+    name: 'Nova',
+    role: 'CEO Executive Assistant',
+    detail: 'Executive Assistant — Delta SMS alerts, Day 1 carrier packets, fee alerts',
+    avatar: 'N',
+    color: 'linear-gradient(135deg,#f59e0b 0%,#d97706 100%)',
+    badge: 'live',
+    desc: 'Nova handles every outbound alert, carrier packet, and CEO notification. She is your direct line to everything that matters.',
+    actions: [
+      'What alerts has Nova sent today?',
+      'Send a test alert to Delta',
+      'Show me the Day 1 carrier packet template',
+      'What triggers a Nova alert?',
+    ],
+    canChat: false,
+    showStats: false,
+  },
+  brain: {
+    name: 'Brain',
+    role: 'Master Engine',
+    detail: 'Master Engine — FMCSA queries, cron jobs, autonomous scans, governance',
+    avatar: 'B',
+    color: 'linear-gradient(135deg,#06b6d4 0%,#0284c7 100%)',
+    badge: 'live',
+    desc: 'Brain runs all 6 automated cron jobs, FMCSA compliance checks, the autonomous scan loop, and the governance rule layer.',
+    actions: [
+      'Show me all automation rules',
+      'View the automation log',
+      'What SOPs are loaded?',
+      'Check Google Drive setup status',
+      'Toggle the stale lead scan',
+    ],
+    canChat: false,
+    showStats: true,
+  },
+  receptionist: {
+    name: 'Receptionist',
+    role: 'Inbound Qualifier',
+    detail: 'Inbound qualifier — screens new carrier inquiries, creates leads in DB',
+    avatar: 'R',
+    color: 'linear-gradient(135deg,#10b981 0%,#059669 100%)',
+    badge: 'live',
+    desc: 'Every inbound carrier call or SMS goes through Receptionist first. She qualifies or disqualifies in under 5 questions — then hands off to Erin.',
+    actions: [
+      'Test the receptionist with an inbound lead',
+      'What qualifies a carrier for dispatch?',
+      'What disqualifies a carrier immediately?',
+      'Show the qualification script',
+    ],
+    canChat: false,
+    showStats: false,
+  },
+  megan: {
+    name: 'Megan',
+    role: 'Outbound SDR',
+    detail: 'Outbound SDR — cold outreach carrier acquisition SMS drafts',
+    avatar: 'M',
+    color: 'linear-gradient(135deg,#ec4899 0%,#db2777 100%)',
+    badge: 'live',
+    desc: 'Megan drafts personalized outbound SMS for carrier acquisition. Give her a carrier name and MC# and she will write the approach.',
+    actions: [
+      'Draft an outbound SMS for a new carrier',
+      'What lanes should I target this week?',
+      'How does Megan personalize outreach?',
+      'Show me a sample Megan SDR message',
+    ],
+    canChat: false,
+    showStats: false,
+  },
+  dan: {
+    name: 'Dan',
+    role: 'Outbound SDR (B-voice)',
+    detail: 'Outbound SDR — carrier acquisition (B-voice variant, different tone)',
+    avatar: 'D',
+    color: 'linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)',
+    badge: 'live',
+    desc: 'Dan is the B-voice SDR — same mission as Megan, different energy. Use Dan for follow-up sequences or warmer leads that need a different approach.',
+    actions: [
+      'Draft a follow-up SMS for a warm lead',
+      'When should I use Dan vs. Megan?',
+      'Show me Dan\'s tone and style',
+    ],
+    canChat: false,
+    showStats: false,
+  },
+  delta: {
+    name: 'Delta',
+    role: 'CEO · Owner',
+    detail: 'CEO — final authority on all Iron Rule exceptions and escalations',
+    avatar: 'Δ',
+    color: 'linear-gradient(135deg,#f97316 0%,#ea580c 100%)',
+    badge: 'shadow',
+    desc: 'Delta is the final word. All escalations over $500, carrier threats to leave, legal documents, and market expansions route here. CEO Agent is in shadow mode — learning Delta\'s decisions.',
+    actions: [
+      'Show all open escalations',
+      'View blocked brokers',
+      'Show this week\'s revenue summary',
+      'What needs my attention today?',
+    ],
+    canChat: false,
+    showStats: true,
+  },
+};
+
+let currentAgent = 'erin';
+let chatHistory = {};
+
+function selectAgent(key) {
+  const agent = AGENTS[key];
+  if (!agent) return;
+  currentAgent = key;
+
+  // Sidebar active state
+  document.querySelectorAll('.agent-item').forEach(el => el.classList.remove('active'));
+  document.querySelector(`[data-agent="${key}"]`).classList.add('active');
+
+  // Top bar
+  const tbAvatar = document.getElementById('tbAvatar');
+  tbAvatar.textContent = agent.avatar;
+  tbAvatar.style.background = agent.color;
+  document.getElementById('tbName').textContent = agent.name;
+  document.getElementById('tbRole').textContent = agent.detail;
+
+  const badge = document.getElementById('tbBadge');
+  badge.className = 'top-bar-badge';
+  if (agent.badge === 'live') { badge.classList.add('badge-live'); badge.textContent = 'Live'; }
+  else if (agent.badge === 'ready') { badge.classList.add('badge-ready'); badge.textContent = 'Ready'; }
+  else { badge.classList.add('badge-shadow'); badge.textContent = 'Shadow'; }
+
+  // Stats strip
+  document.getElementById('statsStrip').classList.toggle('hidden', !agent.showStats);
+
+  // Welcome panel
+  const wAvatar = document.getElementById('wAvatar');
+  wAvatar.textContent = agent.avatar;
+  wAvatar.style.background = agent.color;
+  document.getElementById('wName').textContent = agent.name;
+  document.getElementById('wRole').textContent = agent.role;
+  document.getElementById('wDesc').textContent = agent.desc;
+
+  // Quick actions
+  const qa = document.getElementById('quickActions');
+  qa.innerHTML = agent.actions.map(a =>
+    `<button class="quick-btn" onclick="useQuickAction('${escHtml(a)}')">${a}</button>`
+  ).join('');
+
+  // Show welcome or restore chat
+  const hasChat = chatHistory[key] && chatHistory[key].length > 0;
+  document.getElementById('welcomePanel').classList.toggle('hidden', hasChat);
+  document.getElementById('chatPanel').classList.toggle('hidden', !hasChat);
+
+  if (hasChat) renderChat(key);
+
+  // Update input placeholder
+  const input = document.getElementById('chatInput');
+  if (input) input.placeholder = `Message ${agent.name}...`;
+}
+
+function escHtml(s) {
+  return s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function useQuickAction(text) {
+  if (!AGENTS[currentAgent].canChat) {
+    // Non-chat agents: show info panel response
+    showWelcomeResponse(text);
+    return;
   }
-  setInterval(updateClock, 1000);
-  updateClock();
+  document.getElementById('chatInput').value = text;
+  sendMessage();
+}
 
-  // Load stats from API
-  async function loadStats() {
-    try {
-      const health = await fetch('/health').then(r => r.json());
-      // Stats would come from real API endpoints in production
-    } catch(e) {}
+function showWelcomeResponse(text) {
+  // For non-chat agents, surface a coming-soon note
+  alert(`"${text}"\n\nThis agent's UI panel is coming in the next build. To interact with ${AGENTS[currentAgent].name} directly, use the API endpoint:\nPOST /agents/${currentAgent === 'receptionist' ? 'receptionist' : 'sdr/' + currentAgent}`);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
   }
-  loadStats();
+}
 
-  // Erin chat
-  async function sendMessage() {
-    const input = document.getElementById('chat-input');
-    const messages = document.getElementById('chat-messages');
-    const text = input.value.trim();
-    if (!text) return;
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
 
-    messages.innerHTML += `<div class="chat-msg"><span class="who user">[You]</span>${escapeHtml(text)}</div>`;
-    input.value = '';
-    messages.scrollTop = messages.scrollHeight;
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
 
-    try {
-      const resp = await fetch('/erin/chat', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({message: text}),
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        messages.innerHTML += `<div class="chat-msg"><span class="who erin">[Erin]</span>${escapeHtml(data.reply)}</div>`;
-      } else {
-        messages.innerHTML += `<div class="chat-msg"><span class="who system">[System]</span>Erin endpoint not yet connected — add /erin/chat route to main.py.</div>`;
-      }
-    } catch(e) {
-      messages.innerHTML += `<div class="chat-msg"><span class="who system">[System]</span>Could not reach Erin. Is the server running?</div>`;
-    }
-    messages.scrollTop = messages.scrollHeight;
+  const agent = AGENTS[currentAgent];
+  if (!agent.canChat) { showWelcomeResponse(text); return; }
+
+  // Switch from welcome to chat
+  document.getElementById('welcomePanel').classList.add('hidden');
+  document.getElementById('chatPanel').classList.remove('hidden');
+
+  if (!chatHistory[currentAgent]) chatHistory[currentAgent] = [];
+  chatHistory[currentAgent].push({ role: 'user', text, time: now() });
+
+  input.value = '';
+  input.style.height = 'auto';
+  renderChat(currentAgent);
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+
+  // Typing indicator
+  const messages = document.getElementById('chatMessages');
+  const typing = document.createElement('div');
+  typing.className = 'msg';
+  typing.id = 'typingIndicator';
+  typing.innerHTML = `
+    <div class="msg-avatar" style="background:${agent.color}">${agent.avatar}</div>
+    <div class="bubble">
+      <div class="typing-indicator">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+    </div>`;
+  messages.appendChild(typing);
+  messages.scrollTop = messages.scrollHeight;
+
+  try {
+    const res = await fetch(agent.chatEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    });
+    const data = await res.json();
+    const reply = data.response || data.reply || data.message || 'I received your message.';
+
+    chatHistory[currentAgent].push({ role: 'agent', text: reply, time: now() });
+  } catch (e) {
+    chatHistory[currentAgent].push({ role: 'agent', text: `[Connection error — is the Verlytax backend running?]`, time: now() });
   }
 
-  document.getElementById('chat-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') sendMessage();
+  typing.remove();
+  btn.disabled = false;
+  renderChat(currentAgent);
+}
+
+function renderChat(key) {
+  const agent = AGENTS[key];
+  const messages = document.getElementById('chatMessages');
+  messages.innerHTML = chatHistory[key].map(m => `
+    <div class="msg ${m.role === 'user' ? 'user' : ''}">
+      <div class="msg-avatar" style="background:${m.role === 'user' ? '#334155' : agent.color}">
+        ${m.role === 'user' ? '△' : agent.avatar}
+      </div>
+      <div>
+        <div class="bubble">${m.text}</div>
+        <div class="msg-time">${m.time}</div>
+      </div>
+    </div>
+  `).join('');
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function now() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// Search agents
+function filterAgents(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.agent-item').forEach(el => {
+    const name = el.querySelector('.agent-name').textContent.toLowerCase();
+    const role = el.querySelector('.agent-role').textContent.toLowerCase();
+    el.style.display = (!q || name.includes(q) || role.includes(q)) ? '' : 'none';
   });
+}
 
-  function escapeHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// Load stats
+async function loadStats() {
+  try {
+    const res = await fetch('/carriers/stats');
+    const data = await res.json();
+    const p = data.pipeline || {};
+    document.getElementById('statActive').textContent = p.active ?? '0';
+    document.getElementById('statTrial').textContent = p.trial ?? '0';
+    document.getElementById('statLeads').textContent = p.lead ?? '0';
+    document.getElementById('statSuspended').textContent = p.suspended ?? '0';
+  } catch (_) {}
+}
+
+// ⌘K focus search
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    document.getElementById('agentSearch').focus();
   }
+});
 
-  // Responsive two-col
-  function checkWidth() {
-    const twoCol = document.querySelector('.two-col');
-    if (twoCol) {
-      twoCol.style.gridTemplateColumns = window.innerWidth < 700 ? '1fr' : '1fr 1fr';
+// ── VOICE INPUT ────────────────────────────────────────────────
+// Uses Web Speech API with continuous + interim results for real-time display
+// Better than ChatGPT's: shows words live as you speak, no click-to-submit delay
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let isListening = false;
+let interimBuffer = '';
+let finalBuffer = '';
+
+function initVoice() {
+  if (!SpeechRecognition) return;
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;       // Keep listening — don't auto-stop
+  recognition.interimResults = true;   // Show words live as spoken
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = (event) => {
+    interimBuffer = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalBuffer += transcript + ' ';
+      } else {
+        interimBuffer = transcript;
+      }
     }
+    // Show confirmed + in-progress text live in the textarea
+    const input = document.getElementById('chatInput');
+    input.value = finalBuffer + interimBuffer;
+    autoResize(input);
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error !== 'no-speech') stopVoice();
+  };
+
+  recognition.onend = () => {
+    // Auto-restart if still in listening mode (prevents Chrome's 60s cutoff)
+    if (isListening) {
+      try { recognition.start(); } catch (_) {}
+    }
+  };
+}
+
+function toggleVoice() {
+  if (!SpeechRecognition) {
+    alert('Voice input requires Chrome or Edge. Safari is not supported.');
+    return;
   }
-  window.addEventListener('resize', checkWidth);
-  checkWidth();
+  if (!recognition) initVoice();
+
+  if (isListening) {
+    stopVoice();
+  } else {
+    startVoice();
+  }
+}
+
+function startVoice() {
+  const input = document.getElementById('chatInput');
+  finalBuffer = input.value.trim() ? input.value.trim() + ' ' : '';
+  interimBuffer = '';
+
+  try { recognition.start(); } catch (_) {}
+  isListening = true;
+
+  document.getElementById('voiceBtn').classList.add('recording');
+  document.getElementById('voiceBtn').textContent = '⏹';
+  input.classList.add('listening');
+  input.placeholder = 'Listening…';
+  const status = document.getElementById('voiceStatus');
+  status.classList.remove('hidden');
+}
+
+function stopVoice() {
+  isListening = false;
+  try { recognition.stop(); } catch (_) {}
+
+  const input = document.getElementById('chatInput');
+  input.value = (finalBuffer + interimBuffer).trim();
+  autoResize(input);
+  interimBuffer = '';
+  finalBuffer = '';
+
+  document.getElementById('voiceBtn').classList.remove('recording');
+  document.getElementById('voiceBtn').textContent = '🎙';
+  input.classList.remove('listening');
+  input.placeholder = `Message ${AGENTS[currentAgent]?.name || 'Erin'}…`;
+  document.getElementById('voiceStatus').classList.add('hidden');
+
+  // Auto-send if there's text and the agent can chat
+  if (input.value.trim() && AGENTS[currentAgent]?.canChat) {
+    sendMessage();
+  }
+}
+
+// Init
+selectAgent('erin');
+loadStats();
+setInterval(loadStats, 30000);
 </script>
 </body>
 </html>

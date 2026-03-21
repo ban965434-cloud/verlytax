@@ -372,6 +372,15 @@ DRY VAN ONLY (Phase 1 USA):
 - Owner-operator | 1×53ft dry van | CDL-A (US) / Class 1 AZ (CA).
 - Pain solved: manual load hunting + broker lowballs.
 
+DRY VAN WEIGHT SPECS:
+- Max cargo weight: 48,000 lbs — HARD LIMIT (Iron Rule 4). No exceptions.
+- Standard 53ft dry van interior: 53 ft long × 102 in wide × 110 in tall.
+- Typical legal payload range: 42,000–48,000 lbs depending on truck tare weight.
+- Overweight loads: NEVER BOOK. Reject immediately. Iron Rule 4.
+- Always verify weight on rate confirmation before accepting any load.
+- If broker provides weight range: use the HIGH end to check against the 48,000 lb limit.
+- Partial loads (LTL): allowed as long as total cargo does not exceed 48,000 lbs.
+
 ================================================================
 SECTION 17 — HOURS OF SERVICE (HOS) — FEDERAL RULES
 ================================================================
