@@ -190,6 +190,7 @@ Six SQLAlchemy async models, all stored in `verlytax.db`:
 - `POST /agents/receptionist` — run inbound lead through Receptionist agent (requires INTERNAL_TOKEN)
 - `POST /agents/sdr/megan` — Megan SDR drafts outbound carrier acquisition SMS (requires INTERNAL_TOKEN)
 - `POST /agents/sdr/dan` — Dan SDR drafts outbound SMS B-voice variant (requires INTERNAL_TOKEN)
+- `POST /agents/voice-call` — initiate a Retell outbound call for any voice agent: Erin, Ava, or Zara (requires INTERNAL_TOKEN)
 
 ### Erin Chat (`/erin/*`)
 - `POST /erin/chat` — live chat with Erin from the dashboard
@@ -207,7 +208,8 @@ Six SQLAlchemy async models, all stored in `verlytax.db`:
 - `GET /support/tickets/{ticket_id}` — full ticket detail
 - `POST /support/tickets/{ticket_id}/respond` — Zara drafts + sends SMS response (requires INTERNAL_TOKEN)
 - `POST /support/tickets/{ticket_id}/resolve` — mark resolved (requires INTERNAL_TOKEN)
-- `POST /support/tickets/{ticket_id}/escalate` — escalate to "erin" or "delta" (requires INTERNAL_TOKEN)
+- `POST /support/tickets/{ticket_id}/escalate` — escalate to "erin", "delta", or "voice_agent" (requires INTERNAL_TOKEN)
+- `POST /support/tickets/{ticket_id}/voice-escalate` — place Retell outbound call to carrier; transcript written back to ticket on call end (requires INTERNAL_TOKEN)
 - `POST /support/chat` — live chat with Zara (no token required)
 - `GET /support/stats` — open count, avg resolution time, by category/status
 
@@ -300,7 +302,7 @@ Nine crons run on startup via APScheduler. All governed by `AutomationRule` togg
 
 Items from the original roadmap that are **not yet implemented:**
 
-1. **Retell voice integration** — connect inbound carrier phone calls to Erin via Retell AI (webhook skeleton exists at `/webhooks/retell` but logic is not wired)
+1. **Retell inbound phone number routing** — wire a Retell phone number to receive inbound calls and route to Erin or Ava based on caller context (outbound calls + webhook + per-agent IDs are all built; remaining step is Retell dashboard config to point a phone number at the right agent)
 2. **DocuSign integration** — auto-send service agreement PDF at Day 5 of trial
 3. **DAT rate feed** — pull live RPM data per lane for scoring in `services.py`
 4. **Canada Phase 2** — NSC/CVOR/SAAQ compliance — **only build when Delta explicitly activates**
@@ -319,6 +321,7 @@ Items already completed (do not re-add to roadmap):
 - ~~Wire existing agents (Receptionist, Megan, Dan)~~ → Live in `app/routes/agents.py`
 - ~~SOP + knowledge storage~~ → `VERLYTAX_AIOS/SOPs/` + Google Drive folders added
 - ~~Automation governance layer~~ → `AutomationLog`, `AutomationRule` models + `/brain/rules` endpoints
+- ~~Retell voice integration (code)~~ → `retell_initiate_call()` service, `/agents/voice-call`, `/webhooks/retell` fully routed by agent (Erin/Ava/Zara), per-agent IDs in `.env`, transcript written back to ticket
 
 ---
 
@@ -347,7 +350,10 @@ Items already completed (do not re-add to roadmap):
 | `TWILIO_ACCOUNT_SID` | Twilio for Nova SMS |
 | `TWILIO_AUTH_TOKEN` | Twilio webhook verification |
 | `TWILIO_FROM_NUMBER` | Nova's outbound SMS number |
-| `RETELL_API_KEY` | Retell AI for voice calls |
+| `RETELL_API_KEY` | Retell AI API key |
+| `RETELL_AGENT_ID_ERIN` | Retell agent ID for inbound carrier dispatch calls (Erin) |
+| `RETELL_AGENT_ID_AVA` | Retell agent ID for inbound new lead qualification calls (Ava) |
+| `RETELL_AGENT_ID_ZARA` | Retell agent ID for outbound support escalation calls (Zara) |
 | `STRIPE_SECRET_KEY` | Stripe for fee collection |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |
 | `FMCSA_API_KEY` | Live FMCSA portal queries |

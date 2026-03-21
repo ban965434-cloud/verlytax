@@ -6,8 +6,6 @@ Tickets are NEVER deleted. They resolve, escalate to text/voice, or stay open.
 """
 
 import asyncio
-import os
-import httpx
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Header
@@ -16,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
 
 from app.db import get_db, SupportTicket, Carrier, AutomationLog
-from app.services import verify_internal_token, run_agent, nova_sms, nova_alert_ceo, log_automation
+from app.services import verify_internal_token, run_agent, nova_sms, nova_alert_ceo, log_automation, retell_initiate_call
 
 router = APIRouter()
 
@@ -373,47 +371,23 @@ async def voice_escalate_ticket(
     if not ticket.phone:
         raise HTTPException(400, "No phone number on this ticket — cannot initiate a voice call.")
 
-    retell_api_key = os.getenv("RETELL_API_KEY", "")
-    retell_agent_id = os.getenv("RETELL_AGENT_ID", "")
-    from_number = os.getenv("TWILIO_FROM_NUMBER", "")
+    # Initiate Retell outbound call via shared service (Zara voice agent)
+    call_result = await retell_initiate_call(
+        to_number=ticket.phone,
+        agent="zara",
+        metadata={
+            "ticket_number": ticket.ticket_number,
+            "ticket_id": ticket.id,
+            "carrier_mc": ticket.carrier_mc or "",
+            "subject": ticket.subject,
+            "category": ticket.category,
+        },
+    )
 
-    if not retell_agent_id:
-        raise HTTPException(500, "RETELL_AGENT_ID not configured. Add it to .env.")
+    if call_result["status"] == "error":
+        raise HTTPException(502, f"Retell call failed: {call_result['reason']}")
 
-    # Initiate Retell outbound call
-    call_id = None
-    retell_error = None
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                "https://api.retellai.com/v2/create-phone-call",
-                headers={
-                    "Authorization": f"Bearer {retell_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "from_number": from_number,
-                    "to_number": ticket.phone,
-                    "agent_id": retell_agent_id,
-                    "metadata": {
-                        "ticket_number": ticket.ticket_number,
-                        "ticket_id": ticket.id,
-                        "carrier_mc": ticket.carrier_mc or "",
-                        "subject": ticket.subject,
-                        "category": ticket.category,
-                    },
-                },
-            )
-            resp_data = response.json()
-            if response.status_code in (200, 201):
-                call_id = resp_data.get("call_id") or resp_data.get("id")
-            else:
-                retell_error = resp_data.get("message") or str(resp_data)
-    except Exception as e:
-        retell_error = str(e)
-
-    if retell_error and not call_id:
-        raise HTTPException(502, f"Retell call failed: {retell_error}")
+    call_id = call_result["call_id"]
 
     # Update ticket — never delete, always escalate upward
     ticket.status = "escalated"
