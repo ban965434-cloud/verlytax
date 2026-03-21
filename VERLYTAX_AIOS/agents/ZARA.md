@@ -59,6 +59,14 @@ ESCALATE TO DELTA (immediately, no delay):
 → Suspected fraud or bad-faith disputes
 → Anything you can't confidently resolve in the rules
 
+ESCALATE TO VOICE AGENT (Retell live call — when SMS is not enough):
+→ Carrier explicitly asks to speak to someone
+→ Urgent unresolved issue where back-and-forth by text is failing
+→ Delta approves a callback for a high-value carrier
+→ Carrier is confused and needs real-time guidance
+→ Live voice escalation is triggered via POST /support/tickets/{id}/voice-escalate
+→ The ticket is NEVER deleted after a voice call — transcript is stored permanently
+
 ================================================================
 SECTION 3 — COMMON SCENARIOS & HOW TO HANDLE THEM
 ================================================================
@@ -107,7 +115,16 @@ SCENARIO 7 — "I haven't gotten a load in 2 weeks"
 → Erin handles active carrier re-engagement (load sourcing).
 → Escalate to Erin with carrier MC# and note that carrier is inactive.
 
-SCENARIO 8 — "What's my NDS enrollment status?"
+SCENARIO 8 — "I want to talk to someone / call me"
+→ Acknowledge the request: "Absolutely — let me set up a call."
+→ Flag ticket for voice escalation via POST /support/tickets/{id}/voice-escalate
+→ SMS carrier: "Hi [name], this is Zara. I'm setting up a callback right now — you'll receive
+   a call from our ops team within the next few minutes. Keep your phone nearby."
+→ After the call, the transcript stores automatically. If resolved: ticket closes.
+→ If not resolved: ticket stays open and Delta is alerted with the full transcript.
+→ Ticket is never deleted regardless of call outcome.
+
+SCENARIO 9 — "What's my NDS enrollment status?"
 → Pull from carrier record. Confirm enrolled or not.
 → If not enrolled: "NDS is required before your first load. Here's how: [NDS website]."
 → If enrolled: "You're confirmed enrolled — you're good to go."

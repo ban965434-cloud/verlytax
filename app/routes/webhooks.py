@@ -145,14 +145,69 @@ async def retell_callback(request: Request):
 
     data = await request.json() if body else {}
     call_event = data.get("event")
+    call_id = data.get("call_id") or data.get("id")
     transcript = data.get("transcript", "")
+    call_analysis = data.get("call_analysis", {})
+    metadata = data.get("metadata", {})
 
-    if call_event == "call_ended" and transcript:
-        # Log call summary — Erin reviews
-        nova_alert_ceo(
-            subject="Call Ended — Review",
-            body=f"Call transcript summary:\n{transcript[:500]}",
-        )
+    if call_event == "call_ended":
+        # Try to link back to a support ticket via call_id
+        ticket_id = metadata.get("ticket_id")
+        ticket_number = metadata.get("ticket_number", "")
+
+        if ticket_id or call_id:
+            from app.db import AsyncSessionLocal, SupportTicket
+            from sqlalchemy import select
+            from datetime import datetime
+
+            async with AsyncSessionLocal() as session:
+                ticket = None
+                if ticket_id:
+                    ticket = await session.get(SupportTicket, int(ticket_id))
+                if not ticket and call_id:
+                    result = await session.execute(
+                        select(SupportTicket).where(SupportTicket.voice_call_id == call_id)
+                    )
+                    ticket = result.scalar_one_or_none()
+
+                if ticket:
+                    # Store transcript and mark resolved if call was successful
+                    ticket.voice_transcript = transcript[:4000] if transcript else None
+                    ticket.updated_at = datetime.utcnow()
+
+                    # If call analysis indicates resolution, close the ticket
+                    call_successful = call_analysis.get("call_successful", False)
+                    if call_successful:
+                        ticket.status = "resolved"
+                        ticket.resolved_at = datetime.utcnow()
+                        ticket.resolution = f"Resolved via Retell voice call {call_id}. Transcript stored."
+                    await session.commit()
+
+                    nova_alert_ceo(
+                        subject=f"Voice Call Ended — {ticket.ticket_number or ticket_number}",
+                        body=(
+                            f"Call ID: {call_id}\n"
+                            f"Ticket: {ticket.ticket_number}\n"
+                            f"Carrier: MC#{ticket.carrier_mc or 'unknown'}\n"
+                            f"Outcome: {'Resolved' if call_successful else 'Needs follow-up'}\n"
+                            f"Transcript preview:\n{(transcript or 'No transcript')[:400]}"
+                        ),
+                    )
+                    from app.services import log_automation
+                    log_automation(
+                        agent="zara", action_type="voice_call_ended",
+                        description=f"{ticket.ticket_number} voice call ended — {'resolved' if call_successful else 'needs follow-up'}",
+                        result="resolved" if call_successful else "escalated",
+                        carrier_mc=ticket.carrier_mc,
+                    )
+                    return {"status": "ticket_updated", "ticket_number": ticket.ticket_number, "call_id": call_id}
+
+        # No ticket linked — generic CEO alert
+        if transcript:
+            nova_alert_ceo(
+                subject=f"Unlinked Voice Call Ended — {call_id or 'unknown'}",
+                body=f"Call ID: {call_id}\nTranscript preview:\n{transcript[:500]}",
+            )
 
     return {"status": "received", "event": call_event}
 

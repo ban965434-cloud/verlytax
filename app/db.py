@@ -275,6 +275,11 @@ class SupportTicket(Base):
     resolution = Column(Text)                                 # final resolution note
     escalation_reason = Column(Text)
 
+    # Voice escalation — Retell outbound call tracking
+    voice_call_id = Column(String, index=True)                # Retell call ID when voice-escalated
+    voice_escalated_at = Column(DateTime)
+    voice_transcript = Column(Text)                           # call transcript from Retell webhook
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     resolved_at = Column(DateTime)
