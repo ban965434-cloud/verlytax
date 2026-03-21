@@ -83,10 +83,11 @@ def _load_erin_system_prompt() -> str:
         return "You are Erin, the AI dispatcher for Verlytax Operations."
 
 
-def erin_respond(user_message: str, context: Optional[str] = None) -> str:
+def erin_respond(user_message: str, context: Optional[str] = None, memory_context: Optional[str] = None) -> str:
     """
     Route a message through Erin (Claude) with the full system prompt.
     context: optional JSON string of relevant DB data for this query.
+    memory_context: optional Mya memory strings injected as carrier intelligence.
     """
     if not _claude:
         return "Erin is offline — ANTHROPIC_API_KEY not configured."
@@ -94,6 +95,8 @@ def erin_respond(user_message: str, context: Optional[str] = None) -> str:
     system = _load_erin_system_prompt()
     if context:
         system += f"\n\n=== CURRENT CONTEXT (from verlytax.db) ===\n{context}"
+    if memory_context:
+        system += f"\n\n=== MYA MEMORY — what we know about this carrier ===\n{memory_context}"
 
     try:
         response = _claude.messages.create(
@@ -288,6 +291,91 @@ def run_agent(system_prompt_file: str, message: str, context: str = "") -> str:
         return response.content[0].text
     except Exception as e:
         return f"[Agent error: {str(e)}]"
+
+
+# ── Mya Memory Engine ─────────────────────────────────────────────────────────
+
+def store_memory(
+    agent: str,
+    memory_type: str,
+    content: str,
+    carrier_mc: str = None,
+    subject: str = None,
+    importance: int = 3,
+    source: str = "auto",
+):
+    """
+    Store a learning in AgentMemory (synchronous wrapper — safe to call from crons).
+    source: "auto" = Mya learned it | "delta" = Delta manually taught it.
+    """
+    import asyncio
+    from app.db import AsyncSessionLocal, AgentMemory
+
+    async def _write():
+        async with AsyncSessionLocal() as session:
+            session.add(AgentMemory(
+                agent=agent,
+                memory_type=memory_type,
+                carrier_mc=carrier_mc,
+                subject=subject,
+                content=content,
+                importance=importance,
+                source=source,
+            ))
+            await session.commit()
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(_write())
+        else:
+            loop.run_until_complete(_write())
+    except Exception:
+        pass  # Never let memory storage crash an operation
+
+
+async def recall_memories(
+    carrier_mc: str = None,
+    memory_type: str = None,
+    limit: int = 8,
+) -> str:
+    """
+    Async — recall relevant memories and return as a formatted string for agent context injection.
+    Bumps recall_count so we know which memories are actually being used.
+    """
+    from app.db import AsyncSessionLocal, AgentMemory
+    from sqlalchemy import desc as sa_desc
+
+    try:
+        async with AsyncSessionLocal() as session:
+            q = select(AgentMemory).order_by(
+                sa_desc(AgentMemory.importance),
+                sa_desc(AgentMemory.created_at),
+            )
+            if carrier_mc:
+                # Carrier-specific + global memories
+                q = q.where(
+                    (AgentMemory.carrier_mc == carrier_mc) | (AgentMemory.carrier_mc.is_(None))
+                )
+            else:
+                q = q.where(AgentMemory.carrier_mc.is_(None))  # Global only
+            if memory_type:
+                q = q.where(AgentMemory.memory_type == memory_type)
+            q = q.limit(limit)
+
+            result = await session.execute(q)
+            memories = result.scalars().all()
+
+            lines = []
+            for m in memories:
+                label = f"[{m.memory_type.upper()}" + (f" — importance {m.importance}/5" if m.importance >= 4 else "") + "]"
+                lines.append(f"{label} {m.subject or ''}: {m.content}")
+                m.recall_count = (m.recall_count or 0) + 1
+                m.last_recalled = datetime.utcnow()
+            await session.commit()
+            return "\n".join(lines)
+    except Exception:
+        return ""
 
 
 # ── Security helpers ──────────────────────────────────────────────────────────

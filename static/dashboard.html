@@ -546,6 +546,277 @@
     .sv.red { color: var(--red); }
 
     .hidden { display: none !important; }
+
+    /* ── Brain / Automation panel ─────────────────────── */
+    .brain-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .brain-section { display: flex; flex-direction: column; gap: 12px; }
+    .brain-section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    /* Workflow cards */
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .workflow-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .wf-title { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+    .wf-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+    .wf-agents { font-size: 0.65rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+    .wf-btn {
+      margin-top: 10px;
+      padding: 7px 14px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .wf-btn:hover { opacity: 0.85; }
+    .wf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .wf-btn-alt { background: var(--accent-2); }
+    /* Rules grid */
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 10px;
+    }
+    .rule-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .rule-info { flex: 1; }
+    .rule-key { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+    .rule-desc { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+    .rule-toggle {
+      width: 38px;
+      height: 20px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .rule-toggle.on { background: var(--green); }
+    .rule-toggle.off { background: var(--border); }
+    .rule-toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      transition: left 0.2s;
+    }
+    .rule-toggle.on::after { left: 21px; }
+    .rule-toggle.off::after { left: 3px; }
+    .rules-loading { font-size: 0.78rem; color: var(--muted); }
+    /* Cron table */
+    .cron-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .cron-table th {
+      text-align: left;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cron-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text);
+      vertical-align: top;
+    }
+    .cron-table td:first-child { font-weight: 600; color: var(--accent); white-space: nowrap; }
+    .cron-table td:nth-child(2) { color: var(--muted); white-space: nowrap; }
+    /* Log */
+    .brain-log { display: flex; flex-direction: column; gap: 6px; }
+    .log-entry {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .log-agent {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      white-space: nowrap;
+      min-width: 80px;
+    }
+    .log-body { flex: 1; }
+    .log-desc { font-size: 0.78rem; color: var(--text); }
+    .log-meta { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+    .log-result {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .log-result.sent, .log-result.passed, .log-result.charged { background: rgba(16,185,129,0.15); color: var(--green); }
+    .log-result.error, .log-result.suspended { background: rgba(239,68,68,0.15); color: var(--red); }
+    .log-result.drafted, .log-result.qualified, .log-result.triggered { background: rgba(108,99,255,0.15); color: var(--accent); }
+    .log-result.escalated { background: rgba(245,158,11,0.15); color: var(--yellow); }
+    .log-refresh-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    .log-refresh-btn:hover { color: var(--text); }
+    /* Memory items */
+    .memory-item {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .memory-type-badge {
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .memory-type-badge.carrier_profile { background: rgba(99,102,241,0.2); color: #818cf8; }
+    .memory-type-badge.lane_insight { background: rgba(16,185,129,0.2); color: #34d399; }
+    .memory-type-badge.broker_insight { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .memory-type-badge.business_rule { background: rgba(239,68,68,0.2); color: #f87171; }
+    .memory-type-badge.decision_pattern { background: rgba(236,72,153,0.2); color: #f472b6; }
+    .memory-type-badge.business_insight { background: rgba(6,182,212,0.2); color: #22d3ee; }
+    .memory-importance {
+      font-size: 0.62rem;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .memory-importance.high { color: #f87171; }
+    .memory-body { flex: 1; min-width: 0; }
+    .memory-subject { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+    .memory-content { font-size: 0.73rem; color: var(--muted); margin-top: 3px; line-height: 1.4; word-break: break-word; }
+    .memory-meta { font-size: 0.62rem; color: var(--muted); margin-top: 4px; }
+    .memory-delete {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.7rem;
+      padding: 2px 4px;
+      flex-shrink: 0;
+    }
+    .memory-delete:hover { color: var(--red); }
+    /* Teach Mya form */
+    .teach-form { display: flex; flex-direction: column; gap: 8px; }
+    .teach-input {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 0.82rem;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    .teach-input:focus { outline: none; border-color: var(--accent); }
+    .teach-textarea { resize: vertical; min-height: 70px; }
+    /* Agent info panel (replaces alert) */
+    .agent-info-panel {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 16px;
+      font-size: 0.82rem;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .agent-info-panel .aip-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .agent-info-panel .aip-endpoint {
+      display: inline-block;
+      background: rgba(108,99,255,0.15);
+      color: var(--accent);
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 0.75rem;
+      font-family: 'Monaco', 'Menlo', monospace;
+      margin-top: 10px;
+    }
+    /* Workflow toast */
+    .wf-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      max-width: 320px;
+      font-size: 0.82rem;
+      color: var(--text);
+      z-index: 999;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: fadeIn 0.2s ease;
+    }
+    .wf-toast .toast-title { font-weight: 700; margin-bottom: 4px; }
+    .wf-toast .toast-body { color: var(--muted); font-size: 0.75rem; line-height: 1.4; }
   </style>
 </head>
 <body>
@@ -591,22 +862,22 @@
     <div class="section-label">Support <span class="count">1</span></div>
 
     <div class="agent-item" data-agent="receptionist" onclick="selectAgent('receptionist')">
-      <div class="agent-avatar" style="background: linear-gradient(135deg,#10b981 0%,#059669 100%);">R</div>
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#10b981 0%,#059669 100%);">A</div>
       <div class="agent-info">
-        <div class="agent-name">Receptionist</div>
-        <div class="agent-role">Inbound Carrier Support</div>
+        <div class="agent-name">Ava</div>
+        <div class="agent-role">Inbound Qualifier</div>
       </div>
       <div class="agent-status live"></div>
     </div>
 
     <!-- AUTOMATIONS -->
-    <div class="section-label">Automations <span class="count">1</span></div>
+    <div class="section-label">Intelligence <span class="count">1</span></div>
 
     <div class="agent-item" data-agent="brain" onclick="selectAgent('brain')">
-      <div class="agent-avatar" style="background: linear-gradient(135deg,#06b6d4 0%,#0284c7 100%);">⚙</div>
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#06b6d4 0%,#0284c7 100%);">M</div>
       <div class="agent-info">
-        <div class="agent-name">Brain</div>
-        <div class="agent-role">AI Automation Engine</div>
+        <div class="agent-name">Mya</div>
+        <div class="agent-role">Intelligence &amp; Memory Engine</div>
       </div>
       <div class="agent-status live"></div>
     </div>
@@ -715,6 +986,117 @@
     </div>
   </div>
 
+  <!-- Brain / Automations control panel -->
+  <div class="brain-panel hidden" id="brainPanel">
+
+    <!-- Workflow Pipelines -->
+    <div class="brain-section">
+      <div class="brain-section-title">⚡ Workflow Pipelines</div>
+      <div class="workflow-grid">
+        <div class="workflow-card">
+          <div class="wf-title">Inbound Qualify</div>
+          <div class="wf-desc">Receptionist → Megan SDR → Nova send. Full inbound lead pipeline in one click.</div>
+          <div class="wf-agents">Receptionist · Megan · Nova</div>
+          <button class="wf-btn" onclick="triggerWorkflow('inbound')">Run Pipeline</button>
+        </div>
+        <div class="workflow-card">
+          <div class="wf-title">Outbound Blast</div>
+          <div class="wf-desc">Brain pulls stale leads → Megan drafts personalized SMS → Nova sends each one.</div>
+          <div class="wf-agents">Brain · Megan · Nova</div>
+          <button class="wf-btn" onclick="triggerWorkflow('blast-megan')">Run Megan</button>
+          <button class="wf-btn wf-btn-alt" style="margin-top:6px" onclick="triggerWorkflow('blast-dan')">Run Dan</button>
+        </div>
+        <div class="workflow-card">
+          <div class="wf-title">Brain Scan (Manual)</div>
+          <div class="wf-desc">Run the daily autonomous scan now — overdue loads, no-load carriers, stale leads.</div>
+          <div class="wf-agents">Brain · Nova</div>
+          <button class="wf-btn" onclick="triggerWorkflow('brain-scan')">Run Scan Now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Automation Rules -->
+    <div class="brain-section">
+      <div class="brain-section-title">⚙ Automation Rules <span id="rulesStatus" style="font-size:0.7rem;font-weight:400;color:var(--muted);margin-left:8px"></span></div>
+      <div id="rulesGrid" class="rules-grid">
+        <div class="rules-loading">Loading rules…</div>
+      </div>
+    </div>
+
+    <!-- Cron Schedule -->
+    <div class="brain-section">
+      <div class="brain-section-title">🕐 Cron Schedule</div>
+      <table class="cron-table">
+        <thead><tr><th>Job</th><th>Schedule</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>Trial Touchpoints</td><td>Daily 9:00 AM UTC</td><td>Day 3/7/14/30 SMS to trial &amp; churned carriers</td></tr>
+          <tr><td>Friday Fee Charge</td><td>Fridays 10:00 AM UTC</td><td>Auto-charge active carriers; suspend on failure</td></tr>
+          <tr><td>COI Expiry Check</td><td>Daily 7:00 AM UTC</td><td>Alert Delta + SMS carrier when COI within 30 days</td></tr>
+          <tr><td>Testimonial SMS</td><td>Daily 10:30 AM UTC</td><td>Day 30 feedback + Day 60 Google review ask</td></tr>
+          <tr><td>Annual FMCSA Re-check</td><td>Jan 1, 6:00 AM UTC</td><td>Re-check all active carriers; suspend failures</td></tr>
+          <tr><td>Brain Autonomous Scan</td><td>Daily 8:00 AM UTC</td><td>Overdue loads · no-load carriers · stale leads</td></tr>
+          <tr><td>Mya Daily Learning</td><td>Daily 6:00 AM UTC</td><td>Synthesizes load/dispute data into AgentMemory</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Automation Log -->
+    <div class="brain-section">
+      <div class="brain-section-title">📋 Automation Log <button class="log-refresh-btn" onclick="loadBrainLog()">↻ Refresh</button></div>
+      <div id="brainLog" class="brain-log">
+        <div class="rules-loading">Loading log…</div>
+      </div>
+    </div>
+
+    <!-- Mya Memory Browser -->
+    <div class="brain-section">
+      <div class="brain-section-title">🧠 Mya Memory <button class="log-refresh-btn" onclick="loadMyaMemory()">↻ Refresh</button></div>
+      <div id="myaMemory" class="brain-log">
+        <div class="rules-loading">Loading memories…</div>
+      </div>
+    </div>
+
+    <!-- Teach Mya -->
+    <div class="brain-section">
+      <div class="brain-section-title">✏️ Teach Mya</div>
+      <div class="teach-form" id="teachForm">
+        <select id="teachType" class="teach-input">
+          <option value="">Memory type…</option>
+          <option value="carrier_profile">Carrier Profile</option>
+          <option value="lane_insight">Lane Insight</option>
+          <option value="broker_insight">Broker Insight</option>
+          <option value="business_rule">Business Rule</option>
+          <option value="decision_pattern">Decision Pattern</option>
+          <option value="business_insight">Business Insight</option>
+        </select>
+        <input type="text" id="teachSubject" class="teach-input" placeholder="Short title / subject…">
+        <input type="text" id="teachMC" class="teach-input" placeholder="Carrier MC# (optional — leave blank for global)">
+        <textarea id="teachContent" class="teach-input teach-textarea" placeholder="What should Mya remember? Be specific." rows="3"></textarea>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="teachImportance" class="teach-input" style="flex:0 0 120px">
+            <option value="3">Normal (3)</option>
+            <option value="4">High (4)</option>
+            <option value="5">Critical (5)</option>
+            <option value="2">Low (2)</option>
+            <option value="1">Very Low (1)</option>
+          </select>
+          <button class="wf-btn" style="flex:1" onclick="submitTeachMya()">Store Memory</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Token config (required for workflow triggers and rule toggles) -->
+    <div class="brain-section">
+      <div class="brain-section-title">🔑 API Token (for triggers &amp; toggles)</div>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="internalToken" class="teach-input" style="flex:1" placeholder="Paste your INTERNAL_TOKEN here to enable triggers…" oninput="saveToken(this.value)">
+        <span id="tokenStatus" style="font-size:0.75rem;color:var(--muted);align-self:center;white-space:nowrap"></span>
+      </div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-top:4px">Stored in sessionStorage only — never sent anywhere except your own server.</div>
+    </div>
+
+  </div>
+
 </div>
 
 <script>
@@ -756,21 +1138,22 @@ const AGENTS = {
     showStats: false,
   },
   receptionist: {
-    name: 'Receptionist',
-    role: 'Inbound Carrier Support',
-    detail: 'Inbound Support — screens carrier inquiries, handles first contact, routes to Erin',
-    avatar: 'R',
+    name: 'Ava',
+    role: 'Inbound Qualifier',
+    detail: 'Inbound Qualifier — screens every carrier inquiry, qualifies in 5 questions, routes to Erin',
+    avatar: 'A',
     color: 'linear-gradient(135deg,#10b981 0%,#059669 100%)',
     badge: 'live',
-    desc: 'Every inbound carrier call or SMS goes through Receptionist first. She qualifies or disqualifies in under 5 questions — then hands off to Erin.',
+    desc: 'Ava handles every inbound call and text. She qualifies or disqualifies a carrier in under 5 questions — then hands off to Erin without wasting a second.',
     actions: [
-      'Test the receptionist with an inbound lead',
       'What qualifies a carrier for dispatch?',
       'What disqualifies a carrier immediately?',
-      'Show the qualification script',
+      'How does Ava handle a carrier who asks about rates?',
+      'Show me the qualification criteria',
     ],
     canChat: false,
     showStats: false,
+    apiNote: 'POST /agents/receptionist',
   },
   megan: {
     name: 'Megan',
@@ -806,20 +1189,14 @@ const AGENTS = {
     showStats: false,
   },
   brain: {
-    name: 'Brain',
-    role: 'AI Automation Engine',
-    detail: 'Automation Engine — 6 cron jobs, FMCSA checks, autonomous scans, governance rules',
-    avatar: '⚙',
+    name: 'Mya',
+    role: 'Intelligence & Memory Engine',
+    detail: 'Intelligence Engine — learns from every load, stores memory, powers all automations',
+    avatar: 'M',
     color: 'linear-gradient(135deg,#06b6d4 0%,#0284c7 100%)',
     badge: 'live',
-    desc: 'Brain runs all automated operations: COI expiry checks, Friday fee charges, FMCSA annual re-checks, trial touchpoints, and the autonomous daily scan. Toggle any rule on or off.',
-    actions: [
-      'Show me all automation rules',
-      'View the automation log',
-      'What SOPs are loaded?',
-      'Toggle the stale lead scan',
-      'Run an FMCSA lookup',
-    ],
+    desc: 'Mya is the intelligence layer. She learns from every load, carrier, and dispute — storing memory that makes Erin, Megan, and Dan smarter every day. She also runs all 7 autonomous cron jobs.',
+    actions: [],
     canChat: false,
     showStats: true,
   },
@@ -904,6 +1281,27 @@ function selectAgent(key) {
   // Stats strip
   document.getElementById('statsStrip').classList.toggle('hidden', !agent.showStats);
 
+  // Brain gets its own control panel
+  const isBrain = (key === 'brain');
+  document.getElementById('brainPanel').classList.toggle('hidden', !isBrain);
+  document.getElementById('welcomePanel').classList.add('hidden');
+  document.getElementById('chatPanel').classList.add('hidden');
+
+  if (isBrain) {
+    loadBrainRules();
+    loadBrainLog();
+    loadMyaMemory();
+    // Restore saved token to input
+    const saved = sessionStorage.getItem('verlytax_token');
+    const tokenInput = document.getElementById('internalToken');
+    const tokenStatus = document.getElementById('tokenStatus');
+    if (saved && tokenInput) {
+      tokenInput.value = saved;
+      if (tokenStatus) tokenStatus.textContent = '✓ Saved';
+    }
+    return;
+  }
+
   // Welcome panel
   const wAvatar = document.getElementById('wAvatar');
   wAvatar.textContent = agent.avatar;
@@ -934,19 +1332,363 @@ function escHtml(s) {
   return s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
+function getToken() {
+  return sessionStorage.getItem('verlytax_token') || '';
+}
+
+function saveToken(val) {
+  sessionStorage.setItem('verlytax_token', val.trim());
+  const status = document.getElementById('tokenStatus');
+  if (status) status.textContent = val.trim() ? '✓ Saved' : '';
+}
+
 function useQuickAction(text) {
   if (!AGENTS[currentAgent].canChat) {
-    // Non-chat agents: show info panel response
-    showWelcomeResponse(text);
+    showAgentInfoPanel(text);
     return;
   }
   document.getElementById('chatInput').value = text;
   sendMessage();
 }
 
-function showWelcomeResponse(text) {
-  // For non-chat agents, surface a coming-soon note
-  alert(`"${text}"\n\nThis agent's UI panel is coming in the next build. To interact with ${AGENTS[currentAgent].name} directly, use the API endpoint:\nPOST /agents/${currentAgent === 'receptionist' ? 'receptionist' : 'sdr/' + currentAgent}`);
+function showAgentInfoPanel(text) {
+  const agent = AGENTS[currentAgent];
+  const endpoint = agent.apiNote || (currentAgent === 'receptionist' ? 'POST /agents/receptionist' : `POST /agents/sdr/${currentAgent}`);
+
+  // Replace quick actions area with an info response card
+  const qa = document.getElementById('quickActions');
+  const AGENT_ANSWERS = {
+    'What qualifies a carrier for dispatch?': 'Must have: Active MC/DOT authority (180+ days), Satisfactory safety rating, valid COI ($1M auto liability / $100K cargo), NDS enrollment confirmed, no Florida operations, and must pass FMCSA Clearinghouse check.',
+    'What disqualifies a carrier immediately?': 'Any of: Florida operation, authority under 180 days, Conditional/Unsatisfactory safety rating, failed Clearinghouse, no COI, or weight over 48,000 lbs.',
+    'How does Ava handle a carrier who asks about rates?': 'Ava does NOT discuss rates — she qualifies the carrier and hands off to Erin. Rate discussions are Erin\'s job.',
+    'Show me the qualification criteria': 'Active MC, 180+ day authority, Satisfactory safety, valid COI, NDS enrolled, no Florida. All 5 must pass before Erin picks up the conversation.',
+  };
+
+  const answer = AGENT_ANSWERS[text] || `Ava handles the inbound screening — she qualifies or disqualifies every lead in under 5 questions and routes directly to Erin.`;
+
+  qa.innerHTML = `
+    <div class="agent-info-panel">
+      <div class="aip-title">${agent.name} — ${text}</div>
+      <div>${answer}</div>
+      <div class="aip-endpoint">${endpoint}</div>
+    </div>
+    <button class="quick-btn" onclick="resetQuickActions()" style="margin-top:10px;opacity:0.6">← Back</button>
+  `;
+}
+
+function resetQuickActions() {
+  const agent = AGENTS[currentAgent];
+  const qa = document.getElementById('quickActions');
+  qa.innerHTML = agent.actions.map(a =>
+    `<button class="quick-btn" onclick="useQuickAction('${escHtml(a)}')">${a}</button>`
+  ).join('');
+}
+
+// ── Mya Brain Panel Functions ──────────────────────────────────────────────────
+
+async function loadBrainRules() {
+  const grid = document.getElementById('rulesGrid');
+  const status = document.getElementById('rulesStatus');
+  try {
+    const res = await fetch('/brain/rules');
+    const data = await res.json();
+    const rules = data.rules || [];
+    if (!rules.length) { grid.innerHTML = '<div class="rules-loading">No rules found.</div>'; return; }
+    if (status) status.textContent = `${rules.filter(r => r.enabled).length}/${rules.length} active`;
+    grid.innerHTML = rules.map(r => `
+      <div class="rule-card" id="rule-${r.rule_key}">
+        <div class="rule-info">
+          <div class="rule-key">${r.rule_key.replace(/_/g, ' ')}</div>
+          <div class="rule-desc">${r.description}</div>
+        </div>
+        <button class="rule-toggle ${r.enabled ? 'on' : 'off'}"
+          title="${r.enabled ? 'Click to disable' : 'Click to enable'}"
+          onclick="toggleRule('${r.rule_key}', this)"></button>
+      </div>
+    `).join('');
+  } catch(e) {
+    grid.innerHTML = `<div class="rules-loading" style="color:var(--red)">Failed to load rules — check API.</div>`;
+  }
+}
+
+async function toggleRule(key, btn) {
+  const token = getToken();
+  if (!token) {
+    showToast('Token Required', 'Paste your INTERNAL_TOKEN in the token field below to enable rule toggles.', 'warn');
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/brain/rules/${key}/toggle`, {
+      method: 'POST',
+      headers: { 'x-internal-token': token },
+    });
+    if (!res.ok) { throw new Error(await res.text()); }
+    const data = await res.json();
+    btn.className = `rule-toggle ${data.enabled ? 'on' : 'off'}`;
+    btn.title = data.enabled ? 'Click to disable' : 'Click to enable';
+    const status = document.getElementById('rulesStatus');
+    if (status) {
+      const allBtns = document.querySelectorAll('.rule-toggle.on');
+      const total = document.querySelectorAll('.rule-toggle').length;
+      status.textContent = `${allBtns.length}/${total} active`;
+    }
+    showToast('Rule Updated', `${key.replace(/_/g, ' ')} is now ${data.enabled ? 'ENABLED' : 'DISABLED'}.`, data.enabled ? 'success' : 'warn');
+  } catch(e) {
+    showToast('Toggle Failed', e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+async function loadBrainLog() {
+  const log = document.getElementById('brainLog');
+  try {
+    const res = await fetch('/brain/automation-log?limit=15');
+    const data = await res.json();
+    const entries = data.logs || [];
+    if (!entries.length) { log.innerHTML = '<div class="rules-loading">No log entries yet.</div>'; return; }
+    log.innerHTML = entries.map(l => {
+      const ts = l.created_at ? new Date(l.created_at).toLocaleString() : '';
+      const resultClass = l.result || 'info';
+      return `
+        <div class="log-entry">
+          <div class="log-agent">${l.agent}</div>
+          <div class="log-body">
+            <div class="log-desc">${l.description || l.action_type}</div>
+            <div class="log-meta">${l.carrier_mc ? `MC#${l.carrier_mc} · ` : ''}${ts}</div>
+          </div>
+          <span class="log-result ${resultClass}">${l.result || '—'}</span>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    log.innerHTML = `<div class="rules-loading" style="color:var(--red)">Failed to load log.</div>`;
+  }
+}
+
+async function loadMyaMemory() {
+  const container = document.getElementById('myaMemory');
+  try {
+    const res = await fetch('/mya/memory?limit=12');
+    const data = await res.json();
+    const memories = data.memories || [];
+    if (!memories.length) {
+      container.innerHTML = '<div class="rules-loading">No memories stored yet. Mya learns from daily operations — or teach her manually below.</div>';
+      return;
+    }
+    container.innerHTML = memories.map(m => {
+      const ts = m.created_at ? new Date(m.created_at).toLocaleDateString() : '';
+      const imp = m.importance >= 4 ? 'high' : '';
+      const impLabel = m.importance === 5 ? '🔴 Critical' : m.importance === 4 ? '🟠 High' : '⚪ Normal';
+      return `
+        <div class="memory-item">
+          <div>
+            <span class="memory-type-badge ${m.memory_type}">${m.memory_type.replace(/_/g,' ')}</span>
+          </div>
+          <div class="memory-body">
+            ${m.subject ? `<div class="memory-subject">${m.subject}</div>` : ''}
+            <div class="memory-content">${m.content.length > 220 ? m.content.slice(0, 220) + '…' : m.content}</div>
+            <div class="memory-meta">${m.source === 'delta' ? '✏️ Taught by Delta' : '🤖 Mya learned'} · ${impLabel} · Recalled ${m.recall_count || 0}× · ${ts}${m.carrier_mc ? ` · MC#${m.carrier_mc}` : ''}</div>
+          </div>
+          <button class="memory-delete" onclick="forgetMemory(${m.id}, this)" title="Forget this memory">✕</button>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    container.innerHTML = `<div class="rules-loading" style="color:var(--red)">Failed to load memory.</div>`;
+  }
+}
+
+async function forgetMemory(id, btn) {
+  const token = getToken();
+  if (!token) {
+    showToast('Token Required', 'Paste your INTERNAL_TOKEN to delete memories.', 'warn');
+    return;
+  }
+  if (!confirm('Remove this memory from Mya permanently?')) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/mya/memory/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-internal-token': token },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    btn.closest('.memory-item').remove();
+    showToast('Memory Removed', `Memory #${id} forgotten.`, 'success');
+  } catch(e) {
+    showToast('Delete Failed', e.message, 'error');
+    btn.disabled = false;
+  }
+}
+
+async function submitTeachMya() {
+  const token = getToken();
+  if (!token) {
+    showToast('Token Required', 'Paste your INTERNAL_TOKEN to teach Mya.', 'warn');
+    return;
+  }
+  const type = document.getElementById('teachType').value;
+  const subject = document.getElementById('teachSubject').value.trim();
+  const mc = document.getElementById('teachMC').value.trim();
+  const content = document.getElementById('teachContent').value.trim();
+  const importance = parseInt(document.getElementById('teachImportance').value);
+
+  if (!type) { showToast('Missing Field', 'Select a memory type.', 'warn'); return; }
+  if (!content) { showToast('Missing Content', 'What should Mya remember?', 'warn'); return; }
+
+  try {
+    const res = await fetch('/mya/memory', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-internal-token': token },
+      body: JSON.stringify({ memory_type: type, subject, content, carrier_mc: mc || null, importance }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    // Clear form
+    ['teachType','teachSubject','teachMC','teachContent'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.getElementById('teachImportance').value = '3';
+    showToast('Memory Stored', `Mya will remember: "${subject || content.slice(0,50)}"`, 'success');
+    loadMyaMemory();
+  } catch(e) {
+    showToast('Store Failed', e.message, 'error');
+  }
+}
+
+async function triggerWorkflow(type) {
+  const token = getToken();
+  if (!token) {
+    showToast('Token Required', 'Paste your INTERNAL_TOKEN in the token field to run workflows.', 'warn');
+    return;
+  }
+
+  const confirmMessages = {
+    'brain-scan': 'Run Brain autonomous scan now? (overdue loads, no-load carriers, stale leads)',
+    'blast-megan': 'Run Megan outbound blast? This will SMS up to 10 stale leads right now.',
+    'blast-dan': 'Run Dan outbound blast? This will SMS up to 10 stale leads right now.',
+    'inbound': null,  // handled inline
+  };
+
+  if (type !== 'inbound' && !confirm(confirmMessages[type])) return;
+
+  const btns = document.querySelectorAll('.wf-btn');
+  btns.forEach(b => b.disabled = true);
+
+  try {
+    let res, data;
+
+    if (type === 'brain-scan') {
+      res = await fetch('/workflows/run-brain-scan', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-internal-token': token },
+        body: JSON.stringify({ scan_type: 'all' }),
+      });
+      data = await res.json();
+      showToast('Brain Scan Complete', `Scan type: ${data.scan_type} — ${data.status}`, 'success');
+      loadBrainLog();
+
+    } else if (type === 'blast-megan' || type === 'blast-dan') {
+      const sdr = type === 'blast-megan' ? 'megan' : 'dan';
+      res = await fetch('/workflows/outbound-blast', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-internal-token': token },
+        body: JSON.stringify({ sdr, limit: 10 }),
+      });
+      data = await res.json();
+      if (data.status === 'no_leads') {
+        showToast('No Stale Leads', 'No leads found with 14+ days of inactivity.', 'warn');
+      } else {
+        showToast(`${sdr === 'megan' ? 'Megan' : 'Dan'} Blast Complete`, `Sent ${data.sent}/${data.total_leads} SMS · ${data.duration_ms}ms`, 'success');
+      }
+
+    } else if (type === 'inbound') {
+      // Show mini-form overlay
+      const formHtml = `
+        <div id="inboundOverlay" style="
+          position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:998;
+          display:flex;align-items:center;justify-content:center;padding:20px
+        ">
+          <div style="
+            background:var(--surface);border:1px solid var(--border);border-radius:16px;
+            padding:24px;max-width:400px;width:100%;display:flex;flex-direction:column;gap:12px
+          ">
+            <div style="font-weight:700;font-size:1rem">Inbound Qualify Pipeline</div>
+            <div style="font-size:0.75rem;color:var(--muted)">Ava qualifies → Megan drafts → Nova sends</div>
+            <input id="iqName" class="teach-input" placeholder="Caller name *">
+            <input id="iqPhone" class="teach-input" placeholder="Phone (E.164: +1234567890) *">
+            <input id="iqMC" class="teach-input" placeholder="MC# (optional)">
+            <textarea id="iqMsg" class="teach-input teach-textarea" placeholder="What did they say / what are they asking about? *" rows="3"></textarea>
+            <div style="display:flex;gap:8px">
+              <button class="wf-btn wf-btn-alt" style="flex:1" onclick="document.getElementById('inboundOverlay').remove()">Cancel</button>
+              <button class="wf-btn" style="flex:1" onclick="submitInboundQualify()">Run Pipeline</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', formHtml);
+      btns.forEach(b => b.disabled = false);
+      return;
+    }
+
+    if (!res.ok) throw new Error(JSON.stringify(data));
+
+  } catch(e) {
+    showToast('Workflow Failed', String(e), 'error');
+  }
+  btns.forEach(b => b.disabled = false);
+}
+
+async function submitInboundQualify() {
+  const token = getToken();
+  const name = document.getElementById('iqName').value.trim();
+  const phone = document.getElementById('iqPhone').value.trim();
+  const mc = document.getElementById('iqMC').value.trim();
+  const msg = document.getElementById('iqMsg').value.trim();
+
+  if (!name || !phone || !msg) {
+    showToast('Missing Fields', 'Name, phone, and message are required.', 'warn');
+    return;
+  }
+
+  const overlay = document.getElementById('inboundOverlay');
+  if (overlay) overlay.remove();
+
+  showToast('Running Pipeline…', 'Ava qualifying → Megan drafting → Nova sending', 'info');
+
+  try {
+    const res = await fetch('/workflows/inbound-qualify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-internal-token': token },
+      body: JSON.stringify({ caller_name: name, caller_phone: phone, mc_number: mc || null, message: msg }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(JSON.stringify(data));
+    showToast(
+      'Inbound Pipeline Complete',
+      `Lead created: ${data.lead_created ? 'Yes' : 'Already existed'} · SMS sent: ${data.sms_sent ? 'Yes' : 'No phone'} · ${data.steps?.length || 0} steps · ${data.duration_ms}ms`,
+      'success'
+    );
+    loadBrainLog();
+  } catch(e) {
+    showToast('Pipeline Failed', String(e), 'error');
+  }
+}
+
+function showToast(title, body, type = 'info') {
+  const existing = document.getElementById('wfToast');
+  if (existing) existing.remove();
+
+  const colors = { success: 'var(--green)', error: 'var(--red)', warn: 'var(--yellow)', info: 'var(--accent)' };
+  const toast = document.createElement('div');
+  toast.className = 'wf-toast';
+  toast.id = 'wfToast';
+  toast.innerHTML = `
+    <div class="toast-title" style="color:${colors[type] || colors.info}">${title}</div>
+    <div class="toast-body">${body}</div>
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 5000);
 }
 
 function handleKey(e) {

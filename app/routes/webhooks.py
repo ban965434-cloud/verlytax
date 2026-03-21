@@ -10,7 +10,7 @@ import hashlib
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 
-from app.services import nova_alert_ceo, nova_sms, erin_respond, verify_twilio_signature
+from app.services import nova_alert_ceo, nova_sms, erin_respond, verify_twilio_signature, recall_memories
 
 router = APIRouter()
 
@@ -87,15 +87,36 @@ async def twilio_sms_reply(request: Request):
 
     # If from CEO, treat as Delta command
     if from_number == CEO_PHONE:
-        erin_reply = erin_respond(
-            user_message=body,
-            context="[Delta (CEO) is speaking directly. Follow escalation rules for CEO commands.]",
+        erin_reply = await asyncio.to_thread(
+            erin_respond,
+            body,
+            "[Delta (CEO) is speaking directly. Follow escalation rules for CEO commands.]",
         )
     else:
-        erin_reply = erin_respond(user_message=body)
+        # Look up carrier MC by phone, pull Mya memories for context
+        carrier_mc = None
+        memory_context = ""
+        try:
+            from app.db import AsyncSessionLocal, Carrier
+            from sqlalchemy import select
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(
+                    select(Carrier).where(Carrier.phone == from_number)
+                )
+                carrier = result.scalar_one_or_none()
+                if carrier:
+                    carrier_mc = carrier.mc_number
+            if carrier_mc:
+                memory_context = await recall_memories(carrier_mc=carrier_mc, limit=6)
+        except Exception:
+            pass  # Memory lookup failure should never block Erin
+
+        erin_reply = await asyncio.to_thread(
+            erin_respond, body, None, memory_context or None
+        )
 
     # Send Erin's response back via SMS
-    nova_sms(to=from_number, body=erin_reply[:1600])  # Twilio 1600 char limit
+    await asyncio.to_thread(nova_sms, from_number, erin_reply[:1600])
 
     # TwiML response (empty — we already sent via API)
     return JSONResponse(
