@@ -546,6 +546,186 @@
     .sv.red { color: var(--red); }
 
     .hidden { display: none !important; }
+
+    /* ── Brain / Automation panel ─────────────────────── */
+    .brain-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .brain-section { display: flex; flex-direction: column; gap: 12px; }
+    .brain-section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    /* Workflow cards */
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .workflow-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .wf-title { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+    .wf-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+    .wf-agents { font-size: 0.65rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+    .wf-btn {
+      margin-top: 10px;
+      padding: 7px 14px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .wf-btn:hover { opacity: 0.85; }
+    .wf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .wf-btn-alt { background: var(--accent-2); }
+    /* Rules grid */
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 10px;
+    }
+    .rule-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .rule-info { flex: 1; }
+    .rule-key { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+    .rule-desc { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+    .rule-toggle {
+      width: 38px;
+      height: 20px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .rule-toggle.on { background: var(--green); }
+    .rule-toggle.off { background: var(--border); }
+    .rule-toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      transition: left 0.2s;
+    }
+    .rule-toggle.on::after { left: 21px; }
+    .rule-toggle.off::after { left: 3px; }
+    .rules-loading { font-size: 0.78rem; color: var(--muted); }
+    /* Cron table */
+    .cron-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .cron-table th {
+      text-align: left;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cron-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text);
+      vertical-align: top;
+    }
+    .cron-table td:first-child { font-weight: 600; color: var(--accent); white-space: nowrap; }
+    .cron-table td:nth-child(2) { color: var(--muted); white-space: nowrap; }
+    /* Log */
+    .brain-log { display: flex; flex-direction: column; gap: 6px; }
+    .log-entry {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .log-agent {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      white-space: nowrap;
+      min-width: 80px;
+    }
+    .log-body { flex: 1; }
+    .log-desc { font-size: 0.78rem; color: var(--text); }
+    .log-meta { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+    .log-result {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .log-result.sent, .log-result.passed, .log-result.charged { background: rgba(16,185,129,0.15); color: var(--green); }
+    .log-result.error, .log-result.suspended { background: rgba(239,68,68,0.15); color: var(--red); }
+    .log-result.drafted, .log-result.qualified, .log-result.triggered { background: rgba(108,99,255,0.15); color: var(--accent); }
+    .log-result.escalated { background: rgba(245,158,11,0.15); color: var(--yellow); }
+    .log-refresh-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    .log-refresh-btn:hover { color: var(--text); }
+    /* Workflow toast */
+    .wf-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      max-width: 320px;
+      font-size: 0.82rem;
+      color: var(--text);
+      z-index: 999;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: fadeIn 0.2s ease;
+    }
+    .wf-toast .toast-title { font-weight: 700; margin-bottom: 4px; }
+    .wf-toast .toast-body { color: var(--muted); font-size: 0.75rem; line-height: 1.4; }
   </style>
 </head>
 <body>
@@ -713,6 +893,69 @@
       </div>
       <div class="voice-status hidden" id="voiceStatus">● Listening… speak now</div>
     </div>
+  </div>
+
+  <!-- Brain / Automations control panel -->
+  <div class="brain-panel hidden" id="brainPanel">
+
+    <!-- Workflow Pipelines -->
+    <div class="brain-section">
+      <div class="brain-section-title">⚡ Workflow Pipelines</div>
+      <div class="workflow-grid">
+        <div class="workflow-card">
+          <div class="wf-title">Inbound Qualify</div>
+          <div class="wf-desc">Receptionist → Megan SDR → Nova send. Full inbound lead pipeline in one click.</div>
+          <div class="wf-agents">Receptionist · Megan · Nova</div>
+          <button class="wf-btn" onclick="triggerWorkflow('inbound')">Run Pipeline</button>
+        </div>
+        <div class="workflow-card">
+          <div class="wf-title">Outbound Blast</div>
+          <div class="wf-desc">Brain pulls stale leads → Megan drafts personalized SMS → Nova sends each one.</div>
+          <div class="wf-agents">Brain · Megan · Nova</div>
+          <button class="wf-btn" onclick="triggerWorkflow('blast-megan')">Run Megan</button>
+          <button class="wf-btn wf-btn-alt" style="margin-top:6px" onclick="triggerWorkflow('blast-dan')">Run Dan</button>
+        </div>
+        <div class="workflow-card">
+          <div class="wf-title">Brain Scan (Manual)</div>
+          <div class="wf-desc">Run the daily autonomous scan now — overdue loads, no-load carriers, stale leads.</div>
+          <div class="wf-agents">Brain · Nova</div>
+          <button class="wf-btn" onclick="triggerWorkflow('brain-scan')">Run Scan Now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Automation Rules -->
+    <div class="brain-section">
+      <div class="brain-section-title">⚙ Automation Rules <span id="rulesStatus" style="font-size:0.7rem;font-weight:400;color:var(--muted);margin-left:8px"></span></div>
+      <div id="rulesGrid" class="rules-grid">
+        <div class="rules-loading">Loading rules…</div>
+      </div>
+    </div>
+
+    <!-- Cron Schedule -->
+    <div class="brain-section">
+      <div class="brain-section-title">🕐 Cron Schedule</div>
+      <table class="cron-table">
+        <thead><tr><th>Job</th><th>Schedule</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>Trial Touchpoints</td><td>Daily 9:00 AM UTC</td><td>Day 3/7/14/30 SMS to trial &amp; churned carriers</td></tr>
+          <tr><td>Friday Fee Charge</td><td>Fridays 10:00 AM UTC</td><td>Auto-charge active carriers; suspend on failure</td></tr>
+          <tr><td>COI Expiry Check</td><td>Daily 7:00 AM UTC</td><td>Alert Delta + SMS carrier when COI within 30 days</td></tr>
+          <tr><td>Testimonial SMS</td><td>Daily 10:30 AM UTC</td><td>Day 30 feedback + Day 60 Google review ask</td></tr>
+          <tr><td>Annual FMCSA Re-check</td><td>Jan 1, 6:00 AM UTC</td><td>Re-check all active carriers; suspend failures</td></tr>
+          <tr><td>Brain Autonomous Scan</td><td>Daily 8:00 AM UTC</td><td>Overdue loads · no-load carriers · stale leads</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Automation Log -->
+    <div class="brain-section">
+      <div class="brain-section-title">📋 Recent Automation Log <button class="log-refresh-btn" onclick="loadBrainLog()">↻ Refresh</button></div>
+      <div id="brainLog" class="brain-log">
+        <div class="rules-loading">Loading log…</div>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -903,6 +1146,18 @@ function selectAgent(key) {
 
   // Stats strip
   document.getElementById('statsStrip').classList.toggle('hidden', !agent.showStats);
+
+  // Brain gets its own control panel
+  const isBrain = (key === 'brain');
+  document.getElementById('brainPanel').classList.toggle('hidden', !isBrain);
+  document.getElementById('welcomePanel').classList.add('hidden');
+  document.getElementById('chatPanel').classList.add('hidden');
+
+  if (isBrain) {
+    loadBrainRules();
+    loadBrainLog();
+    return;
+  }
 
   // Welcome panel
   const wAvatar = document.getElementById('wAvatar');
