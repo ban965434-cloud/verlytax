@@ -29,7 +29,7 @@ verlytax/
 ├── .env.example                       ← Template — copy to .env, never commit
 ├── README.md                          ← Public-facing project overview
 ├── app/
-│   ├── main.py                        ← FastAPI entry + APScheduler crons (6 jobs)
+│   ├── main.py                        ← FastAPI entry + APScheduler crons (9 jobs)
 │   ├── db.py                          ← SQLAlchemy async models
 │   ├── iron_rules.py                  ← Iron Rules enforcement logic
 │   ├── gdrive.py                      ← Google Drive folder creation
@@ -41,7 +41,11 @@ verlytax/
 │       ├── webhooks.py               ← Stripe, Twilio SMS, Retell, internal crons
 │       ├── carriers.py               ← Carrier list, bulk import, CSV export
 │       ├── brain.py                  ← SOP CRUD, automation log, rule toggles (/brain/*)
-│       └── agents.py                 ← Receptionist, Megan SDR, Dan SDR (/agents/*)
+│       ├── agents.py                 ← Receptionist, Megan SDR, Dan SDR (/agents/*)
+│       ├── workflows.py              ← Multi-agent workflow pipelines (/workflows/*)
+│       ├── mya.py                    ← Mya memory engine (/mya/*)
+│       ├── compliance.py             ← Cora compliance monitoring (/compliance/*)
+│       └── support.py                ← Zara customer support tickets (/support/*)
 ├── static/
 │   ├── dashboard.html                 ← Operations dashboard (served at /)
 │   ├── about.html                     ← About Verlytax (served at /about)
@@ -59,11 +63,16 @@ verlytax/
     │   ├── SOP_001_CARRIER_ONBOARDING.md
     │   ├── SOP_002_LOAD_BOOKING.md
     │   └── SOP_003_DISPUTE_RESOLUTION.md
+    │   ├── SOP_004_COMPLIANCE_MONITORING.md
+    │   └── SOP_005_CUSTOMER_SUPPORT.md
     └── agents/
         ├── DANIEL_EA.md               ← Delta's EA system prompt
-        ├── RECEPTIONIST.md            ← Inbound qualifier
+        ├── RECEPTIONIST.md            ← Inbound qualifier (Ava)
         ├── SDR_MEGAN.md               ← Outbound SDR (cold outreach)
-        └── SDR_DAN.md                 ← Outbound SDR (B-voice)
+        ├── SDR_DAN.md                 ← Outbound SDR (B-voice)
+        ├── MYA.md                     ← Intelligence & memory engine
+        ├── CORA.md                    ← Compliance officer
+        └── ZARA.md                    ← Customer support specialist
 ```
 
 ---
@@ -74,10 +83,12 @@ verlytax/
 |---|---|---|---|
 | **Erin** | AI Dispatcher — load booking, carrier comms, billing, proactive SMS | Active | `services.erin_respond()` + `Erin_System_Prompt_v4.txt` |
 | **Nova** | Executive Assistant — Delta SMS alerts, Day 1 packets, fee alerts | Active | `services.nova_sms()`, `services.nova_alert_ceo()` |
-| **Brain** | Master engine — FMCSA queries, DB, APScheduler crons, autonomous scans | Active | `app/main.py` (6 scheduler jobs) + `services.fmcsa_lookup()` |
-| **Receptionist** | Inbound qualifier — screens new carrier inquiries | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/RECEPTIONIST.md` |
+| **Mya** | Intelligence & memory engine — learns from every operation, powers all automations | Active | `app/main.py` (9 scheduler jobs) + `VERLYTAX_AIOS/agents/MYA.md` |
+| **Ava** | Inbound qualifier — screens new carrier inquiries | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/RECEPTIONIST.md` |
 | **Megan SDR** | Outbound SDR — carrier acquisition cold outreach | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/SDR_MEGAN.md` |
 | **Dan SDR** | Outbound SDR — carrier acquisition (B-voice) | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/SDR_DAN.md` |
+| **Cora** | Compliance Officer — monitors authority, COI, insurance, clearinghouse, NDS weekly | Active | `app/routes/compliance.py` + `VERLYTAX_AIOS/agents/CORA.md` |
+| **Zara** | Customer Support Specialist — tickets, billing questions, load issues, account inquiries | Active | `app/routes/support.py` + `VERLYTAX_AIOS/agents/ZARA.md` |
 | **CEO Agent** | Shadow mode — learning Delta's decisions | Shadow Only | Not yet built |
 
 ---
@@ -117,6 +128,9 @@ Six SQLAlchemy async models, all stored in `verlytax.db`:
 | `EscalationLog` | `escalation_logs` | All disputes and Delta escalations |
 | `AutomationLog` | `automation_logs` | Audit trail for every autonomous action — never deleted |
 | `AutomationRule` | `automation_rules` | Governance toggles — Delta enables/disables automations |
+| `AgentMemory` | `agent_memories` | Mya's memory store — carrier profiles, lane insights, business learning |
+| `ComplianceAudit` | `compliance_audits` | Full audit record per carrier per scan — authority, COI, insurance, NDS |
+| `SupportTicket` | `support_tickets` | Zara ticket records — TKT-XXXX numbering, triage, response, resolution |
 
 **Carrier status enum:** `lead → trial → active → suspended → churned`
 
@@ -180,6 +194,23 @@ Six SQLAlchemy async models, all stored in `verlytax.db`:
 ### Erin Chat (`/erin/*`)
 - `POST /erin/chat` — live chat with Erin from the dashboard
 
+### Compliance (`/compliance/*`)
+- `GET /compliance/dashboard` — snapshot: at-risk count, expiring COIs, recent audits
+- `POST /compliance/audit/{mc_number}` — run full Cora audit on one carrier (requires INTERNAL_TOKEN)
+- `GET /compliance/audits` — list compliance audits (filter by mc_number, overall_passed, limit)
+- `GET /compliance/at-risk` — all carriers with open compliance flags
+- `GET /compliance/expiring-cois` — carriers with COI expiring within 60 days
+
+### Support (`/support/*`)
+- `POST /support/ticket` — create support ticket; Zara auto-triages immediately
+- `GET /support/tickets` — list tickets (filter: status, priority, carrier_mc, assigned_to; paginated)
+- `GET /support/tickets/{ticket_id}` — full ticket detail
+- `POST /support/tickets/{ticket_id}/respond` — Zara drafts + sends SMS response (requires INTERNAL_TOKEN)
+- `POST /support/tickets/{ticket_id}/resolve` — mark resolved (requires INTERNAL_TOKEN)
+- `POST /support/tickets/{ticket_id}/escalate` — escalate to "erin" or "delta" (requires INTERNAL_TOKEN)
+- `POST /support/chat` — live chat with Zara (no token required)
+- `GET /support/stats` — open count, avg resolution time, by category/status
+
 ### Core (`/`)
 - `GET /` — dashboard (dashboard.html)
 - `GET /about` — about page
@@ -192,7 +223,7 @@ Six SQLAlchemy async models, all stored in `verlytax.db`:
 
 ## Scheduled Jobs (APScheduler in `app/main.py`)
 
-Six crons run on startup via APScheduler. All governed by `AutomationRule` toggles — Delta can disable any via `POST /brain/rules/{rule_key}/toggle`.
+Nine crons run on startup via APScheduler. All governed by `AutomationRule` toggles — Delta can disable any via `POST /brain/rules/{rule_key}/toggle`.
 
 | Job | Schedule | Rule Key | What it does |
 |---|---|---|---|
@@ -202,6 +233,9 @@ Six crons run on startup via APScheduler. All governed by `AutomationRule` toggl
 | `testimonial_sms()` | Daily 10:30 AM UTC | `testimonial_sms` | Day 30 feedback SMS + Day 60 review ask to active carriers |
 | `annual_fmcsa_recheck()` | Jan 1, 6:00 AM UTC | `annual_fmcsa_recheck` | Re-checks FMCSA for all active carriers; suspends failures |
 | `brain_autonomous_scan()` | Daily 8:00 AM UTC | `overdue_load_scan` / `no_load_carrier_scan` / `stale_lead_scan` | Scans for overdue loads, inactive active carriers, stale leads |
+| `mya_learn()` | Daily 6:00 AM UTC | `mya_learn` | Synthesizes load/dispute data into AgentMemory for learning |
+| `cora_compliance_scan()` | Mondays 7:30 AM UTC | `cora_compliance_scan` | Full compliance audit of all active + trial carriers; suspends RED violations |
+| `support_ticket_sweep()` | Daily 9:30 AM UTC | `support_ticket_sweep` | Zara follow-up SMS on tickets >24h; auto-escalates tickets >48h to Delta |
 
 **Note:** Friday fee charge was changed from Monday in the original design. Do not revert without Delta's approval.
 
