@@ -301,6 +301,32 @@ class AutomationLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class BrokerProfile(Base):
+    """
+    Broker knowledge library — positive database of brokers Verlytax works WITH.
+    NOT the blocked broker list (that's BlockedBroker / Iron Rule 8).
+    Mya updates counters + payment days daily via mya_learn().
+    """
+    __tablename__ = "broker_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    broker_name = Column(String, nullable=False, index=True)
+    mc_number = Column(String, unique=True, index=True, nullable=False)
+    contact_name = Column(String)
+    contact_phone = Column(String)
+    contact_email = Column(String)
+    lanes_covered = Column(Text)              # e.g. "TX→CA, OH→GA, IL→TX"
+    avg_payment_days = Column(Float)          # average days delivery→payment
+    reliability_rating = Column(Integer, default=3)  # 1=worst, 5=best; Delta sets this
+    total_loads_booked = Column(Integer, default=0)  # Mya increments daily
+    total_disputes = Column(Integer, default=0)       # Mya increments on DISPUTED loads
+    notes = Column(Text)
+    is_preferred = Column(Boolean, default=False)     # Delta marks top brokers preferred
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class AutomationRule(Base):
     """Governance layer — Delta can disable any autonomous automation without a code deploy."""
     __tablename__ = "automation_rules"

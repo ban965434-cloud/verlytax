@@ -14,7 +14,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus, AutomationRule, AutomationLog, AgentMemory, ComplianceAudit, SupportTicket
-from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya, compliance, support
+from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya, compliance, support, broker_library
 from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, log_automation, store_memory, run_agent, send_hellosign_agreement
 
 from sqlalchemy import select
@@ -564,6 +564,53 @@ async def mya_learn():
             result="stored",
         )
 
+    # ── Broker Library Sync ──────────────────────────────────────────────────
+    # Update broker profiles from recent loads and escalations
+    from app.db import BrokerProfile, EscalationLog
+    broker_updates = 0
+
+    for load in recent_loads:
+        if not load.broker_name:
+            continue
+
+        async with AsyncSessionLocal() as session:
+            broker_result = await session.execute(
+                select(BrokerProfile).where(
+                    BrokerProfile.broker_name.ilike(load.broker_name)
+                )
+            )
+            broker = broker_result.scalar_one_or_none()
+            if not broker:
+                continue
+
+            broker.total_loads_booked = (broker.total_loads_booked or 0) + 1
+
+            # Check for disputes tied to this load
+            if load.status == "disputed":
+                broker.total_disputes = (broker.total_disputes or 0) + 1
+
+            # Recalculate avg payment days if payment data is available
+            if load.invoice_paid_at and load.delivery_date:
+                paid_days = (load.invoice_paid_at - load.delivery_date).days
+                if paid_days >= 0:
+                    prev_avg = broker.avg_payment_days or paid_days
+                    prev_count = max((broker.total_loads_booked or 1) - 1, 1)
+                    broker.avg_payment_days = round(
+                        (prev_avg * prev_count + paid_days) / (prev_count + 1), 1
+                    )
+
+            broker.updated_at = datetime.utcnow()
+            await session.commit()
+            broker_updates += 1
+
+    if broker_updates:
+        log_automation(
+            agent="mya",
+            action_type="broker_library_update",
+            description=f"Mya updated {broker_updates} broker profiles from {len(recent_loads)} loads",
+            result="updated",
+        )
+
 
 async def cora_compliance_scan():
     """
@@ -842,6 +889,7 @@ app.include_router(billing.router, prefix="/billing", tags=["Billing"])
 app.include_router(escalation.router, prefix="/escalation", tags=["Escalation"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
 app.include_router(carriers.router, prefix="/carriers", tags=["Carriers"])
+app.include_router(broker_library.router, prefix="/brokers", tags=["Broker Library"])
 app.include_router(brain.router, prefix="/brain", tags=["Brain"])
 app.include_router(agents.router, prefix="/agents", tags=["Agents"])
 app.include_router(workflows.router, prefix="/workflows", tags=["Workflows"])
