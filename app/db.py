@@ -206,6 +206,85 @@ class AgentMemory(Base):
 # "business_insight"    — high-level business intelligence synthesized by Mya
 
 
+class ComplianceAudit(Base):
+    """
+    Cora's audit record for each compliance check on a carrier.
+    Stores full pass/fail detail for every Iron Rule compliance field.
+    """
+    __tablename__ = "compliance_audits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    carrier_mc = Column(String, nullable=False, index=True)
+    checked_by = Column(String, default="cora")               # "cora" | "manual"
+    checked_at = Column(DateTime, default=datetime.utcnow)
+
+    # Authority (Iron Rule 6/10)
+    authority_age_days = Column(Integer)
+    authority_passed = Column(Boolean)
+
+    # Safety rating (Iron Rule 5)
+    safety_rating = Column(String)
+    safety_passed = Column(Boolean)
+
+    # FMCSA Clearinghouse (Iron Rule 7)
+    clearinghouse_passed = Column(Boolean)
+    clearinghouse_data_age_days = Column(Integer)             # days since last live check
+
+    # COI / Insurance
+    coi_expiry = Column(DateTime)
+    coi_valid = Column(Boolean)
+    coi_days_remaining = Column(Integer)
+    insurance_auto_amount = Column(Float)
+    insurance_auto_passed = Column(Boolean)                   # must be >= $1,000,000
+    insurance_cargo_amount = Column(Float)
+    insurance_cargo_passed = Column(Boolean)                  # must be >= $100,000
+
+    # NDS (Iron Rule 9)
+    nds_enrolled = Column(Boolean)
+
+    # Result
+    overall_passed = Column(Boolean, default=False)
+    risk_level = Column(String, default="green")              # "green" | "yellow" | "red"
+    violations = Column(Text)                                 # JSON list of violation strings
+    notes = Column(Text)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SupportTicket(Base):
+    """
+    Zara's support ticket system.
+    Every carrier question, billing issue, or complaint gets a ticket.
+    """
+    __tablename__ = "support_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_number = Column(String, unique=True, nullable=False, index=True)  # "TKT-0001"
+    carrier_mc = Column(String, index=True)
+    phone = Column(String)                                    # carrier phone for SMS replies
+
+    category = Column(String, nullable=False)                 # billing | load_issue | compliance | account | general
+    subject = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+
+    status = Column(String, default="open")                   # open | in_progress | resolved | escalated
+    priority = Column(String, default="normal")               # low | normal | high | urgent
+    assigned_to = Column(String, default="zara")              # zara | erin | delta
+
+    zara_response = Column(Text)                              # Zara's drafted/sent reply
+    resolution = Column(Text)                                 # final resolution note
+    escalation_reason = Column(Text)
+
+    # Voice escalation — Retell outbound call tracking
+    voice_call_id = Column(String, index=True)                # Retell call ID when voice-escalated
+    voice_escalated_at = Column(DateTime)
+    voice_transcript = Column(Text)                           # call transcript from Retell webhook
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    resolved_at = Column(DateTime)
+
+
 class AutomationLog(Base):
     """Audit trail for every autonomous action taken by Brain, Erin, or any agent."""
     __tablename__ = "automation_logs"
@@ -242,6 +321,8 @@ DEFAULT_AUTOMATION_RULES = [
     ("stale_lead_scan",       "Daily scan for leads with no activity in 14+ days — alerts Delta"),
     ("no_load_carrier_scan",  "Daily scan for active carriers with no loads in 14+ days — Erin check-in SMS"),
     ("mya_learn",             "Daily 6 AM — Mya synthesizes load/dispute data into AgentMemory learnings"),
+    ("cora_compliance_scan",  "Weekly Monday 7:30 AM — Cora audits all active carriers for compliance violations"),
+    ("support_ticket_sweep",  "Daily 9:30 AM — Zara follows up on open tickets >24h; auto-escalates tickets >48h"),
 ]
 
 

@@ -378,6 +378,63 @@ async def recall_memories(
         return ""
 
 
+# ── Retell Voice Agent ────────────────────────────────────────────────────────
+
+# Agent ID env var map — each voice persona has its own Retell agent
+RETELL_AGENT_IDS = {
+    "erin": "RETELL_AGENT_ID_ERIN",   # Inbound carrier dispatch calls
+    "ava":  "RETELL_AGENT_ID_AVA",    # Inbound new lead qualification calls
+    "zara": "RETELL_AGENT_ID_ZARA",   # Outbound support escalation calls
+}
+
+
+async def retell_initiate_call(
+    to_number: str,
+    agent: str,                        # "erin" | "ava" | "zara"
+    metadata: Optional[dict] = None,
+) -> dict:
+    """
+    Initiate a Retell outbound voice call for the named agent.
+    All voice agents (Erin, Ava, Zara) go through this single entry point.
+    Returns {"status": "initiated", "call_id": "...", "agent": agent}
+    or {"status": "error", "reason": "..."}
+    """
+    api_key = os.getenv("RETELL_API_KEY", "")
+    env_var = RETELL_AGENT_IDS.get(agent)
+    agent_id = os.getenv(env_var, "") if env_var else ""
+    from_number = os.getenv("TWILIO_FROM_NUMBER", "")
+
+    if not api_key:
+        return {"status": "error", "reason": "RETELL_API_KEY not configured"}
+    if not agent_id:
+        return {"status": "error", "reason": f"{env_var} not configured in .env"}
+
+    payload = {
+        "from_number": from_number,
+        "to_number": to_number,
+        "agent_id": agent_id,
+        "metadata": {**(metadata or {}), "verlytax_agent": agent},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            resp = await client.post(
+                "https://api.retellai.com/v2/create-phone-call",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            data = resp.json()
+            if resp.status_code in (200, 201):
+                call_id = data.get("call_id") or data.get("id")
+                return {"status": "initiated", "call_id": call_id, "agent": agent}
+            return {"status": "error", "reason": data.get("message") or str(data)}
+    except Exception as e:
+        return {"status": "error", "reason": str(e)}
+
+
 # ── Security helpers ──────────────────────────────────────────────────────────
 
 def verify_internal_token(token: str) -> bool:

@@ -708,6 +708,40 @@
       margin-left: 8px;
     }
     .log-refresh-btn:hover { color: var(--text); }
+    .log-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    /* Compliance stat mini cards */
+    .stat-card-mini {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 90px;
+      gap: 4px;
+    }
+    .scm-val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1;
+    }
+    .scm-val.red { color: var(--red); }
+    .scm-val.yellow { color: var(--yellow); }
+    .scm-val.green { color: var(--green); }
+    .scm-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: center;
+      white-space: nowrap;
+    }
     /* Memory items */
     .memory-item {
       background: var(--glass);
@@ -859,13 +893,34 @@
     </div>
 
     <!-- SUPPORT -->
-    <div class="section-label">Support <span class="count">1</span></div>
+    <div class="section-label">Support <span class="count">2</span></div>
 
     <div class="agent-item" data-agent="receptionist" onclick="selectAgent('receptionist')">
       <div class="agent-avatar" style="background: linear-gradient(135deg,#10b981 0%,#059669 100%);">A</div>
       <div class="agent-info">
         <div class="agent-name">Ava</div>
         <div class="agent-role">Inbound Qualifier</div>
+      </div>
+      <div class="agent-status live"></div>
+    </div>
+
+    <div class="agent-item" data-agent="zara" onclick="selectAgent('zara')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#6366f1 0%,#4338ca 100%);">Z</div>
+      <div class="agent-info">
+        <div class="agent-name">Zara</div>
+        <div class="agent-role">Customer Support Specialist</div>
+      </div>
+      <div class="agent-status live"></div>
+    </div>
+
+    <!-- COMPLIANCE -->
+    <div class="section-label">Compliance <span class="count">1</span></div>
+
+    <div class="agent-item" data-agent="cora" onclick="selectAgent('cora')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#14b8a6 0%,#0d9488 100%);">C</div>
+      <div class="agent-info">
+        <div class="agent-name">Cora</div>
+        <div class="agent-role">Compliance Officer</div>
       </div>
       <div class="agent-status live"></div>
     </div>
@@ -1036,6 +1091,8 @@
           <tr><td>Annual FMCSA Re-check</td><td>Jan 1, 6:00 AM UTC</td><td>Re-check all active carriers; suspend failures</td></tr>
           <tr><td>Brain Autonomous Scan</td><td>Daily 8:00 AM UTC</td><td>Overdue loads · no-load carriers · stale leads</td></tr>
           <tr><td>Mya Daily Learning</td><td>Daily 6:00 AM UTC</td><td>Synthesizes load/dispute data into AgentMemory</td></tr>
+          <tr><td>Cora Compliance Scan</td><td>Mondays 7:30 AM UTC</td><td>Full compliance audit of all active &amp; trial carriers</td></tr>
+          <tr><td>Support Ticket Sweep</td><td>Daily 9:30 AM UTC</td><td>Zara follows up on open tickets &gt;24h · auto-escalates &gt;48h</td></tr>
         </tbody>
       </table>
     </div>
@@ -1094,6 +1151,40 @@
       </div>
       <div style="font-size:0.68rem;color:var(--muted);margin-top:4px">Stored in sessionStorage only — never sent anywhere except your own server.</div>
     </div>
+
+  <!-- Cora Compliance Panel -->
+  <div class="brain-panel hidden" id="coraPanel">
+
+    <div class="brain-section">
+      <div class="brain-section-title">🛡 Compliance Dashboard <button class="log-refresh-btn" onclick="loadCoraStats()">↻ Refresh</button></div>
+      <div id="coraStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+        <div class="stat-card-mini" id="coraTotalActive"><span class="scm-val">—</span><span class="scm-label">Active Carriers</span></div>
+        <div class="stat-card-mini" id="coraAtRisk"><span class="scm-val red">—</span><span class="scm-label">At Risk (RED)</span></div>
+        <div class="stat-card-mini" id="coraYellow"><span class="scm-val yellow">—</span><span class="scm-label">Warning (YELLOW)</span></div>
+        <div class="stat-card-mini" id="coraExpiring"><span class="scm-val yellow">—</span><span class="scm-label">COI Expiring &lt;60d</span></div>
+      </div>
+    </div>
+
+    <div class="brain-section">
+      <div class="brain-section-title">🔴 At-Risk Carriers</div>
+      <div id="coraAtRiskList" class="brain-log"><div class="rules-loading">Loading…</div></div>
+    </div>
+
+    <div class="brain-section">
+      <div class="brain-section-title">🔍 Run Compliance Audit</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="text" id="coraAuditMC" class="teach-input" style="flex:1" placeholder="Enter Carrier MC# (e.g. 123456)">
+        <button class="wf-btn" onclick="runCoraAudit()">Run Audit</button>
+      </div>
+      <div id="coraAuditResult" style="margin-top:10px"></div>
+    </div>
+
+    <div class="brain-section">
+      <div class="brain-section-title">📋 Recent Compliance Audits <button class="log-refresh-btn" onclick="loadCoraAudits()">↻ Refresh</button></div>
+      <div id="coraAuditLog" class="brain-log"><div class="rules-loading">Loading audits…</div></div>
+    </div>
+
+  </div>
 
   </div>
 
@@ -1234,6 +1325,37 @@ const AGENTS = {
     canChat: false,
     showStats: false,
   },
+  zara: {
+    name: 'Zara',
+    role: 'Customer Support Specialist',
+    detail: 'Customer Support — tickets, billing questions, load issues, account inquiries',
+    avatar: 'Z',
+    color: 'linear-gradient(135deg,#6366f1 0%,#4338ca 100%)',
+    badge: 'live',
+    desc: 'Zara handles every carrier support ticket — billing disputes, BOL questions, load issues, and account updates. She triages, responds, resolves, or escalates every ticket.',
+    actions: [
+      'What\'s my BOL status?',
+      'I have a billing question',
+      'How do I activate my account?',
+      'What Iron Rules prevent my load from booking?',
+      'I want to know my NDS enrollment status',
+    ],
+    chatEndpoint: '/support/chat',
+    canChat: true,
+    showStats: false,
+  },
+  cora: {
+    name: 'Cora',
+    role: 'Compliance Officer',
+    detail: 'Compliance Officer — monitors authority, COI, insurance, clearinghouse, NDS for all carriers',
+    avatar: 'C',
+    color: 'linear-gradient(135deg,#14b8a6 0%,#0d9488 100%)',
+    badge: 'live',
+    desc: 'Cora monitors every active carrier for compliance. She catches lapsed COIs, clearinghouse issues, and insurance gaps before they become violations — and suspends instantly when Iron Rules are broken.',
+    actions: [],
+    canChat: false,
+    showStats: false,
+  },
   delta: {
     name: 'Delta',
     role: 'CEO · Owner',
@@ -1281,9 +1403,11 @@ function selectAgent(key) {
   // Stats strip
   document.getElementById('statsStrip').classList.toggle('hidden', !agent.showStats);
 
-  // Brain gets its own control panel
+  // Custom panels
   const isBrain = (key === 'brain');
+  const isCora = (key === 'cora');
   document.getElementById('brainPanel').classList.toggle('hidden', !isBrain);
+  document.getElementById('coraPanel').classList.toggle('hidden', !isCora);
   document.getElementById('welcomePanel').classList.add('hidden');
   document.getElementById('chatPanel').classList.add('hidden');
 
@@ -1299,6 +1423,13 @@ function selectAgent(key) {
       tokenInput.value = saved;
       if (tokenStatus) tokenStatus.textContent = '✓ Saved';
     }
+    return;
+  }
+
+  if (isCora) {
+    loadCoraStats();
+    loadCoraAtRisk();
+    loadCoraAudits();
     return;
   }
 
@@ -1672,6 +1803,108 @@ async function submitInboundQualify() {
     loadBrainLog();
   } catch(e) {
     showToast('Pipeline Failed', String(e), 'error');
+  }
+}
+
+// ── Cora Compliance Panel Functions ────────────────────────────────────────────
+
+async function loadCoraStats() {
+  try {
+    const res = await fetch('/compliance/dashboard');
+    const data = await res.json();
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.querySelector('.scm-val').textContent = val ?? '—';
+    };
+    setVal('coraTotalActive', data.active_carriers ?? '—');
+    setVal('coraAtRisk', data.red_count ?? 0);
+    setVal('coraYellow', data.yellow_count ?? 0);
+    setVal('coraExpiring', data.expiring_coi_60d ?? 0);
+  } catch(e) {
+    console.warn('loadCoraStats error', e);
+  }
+}
+
+async function loadCoraAtRisk() {
+  const el = document.getElementById('coraAtRiskList');
+  try {
+    const res = await fetch('/compliance/at-risk');
+    const data = await res.json();
+    const carriers = data.at_risk || [];
+    if (!carriers.length) {
+      el.innerHTML = '<div class="rules-loading" style="color:var(--green)">✓ No at-risk carriers right now.</div>';
+      return;
+    }
+    el.innerHTML = carriers.map(c => `
+      <div class="log-entry" style="border-left:3px solid var(--red)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600">MC#${c.mc_number} — ${c.name || 'Unknown'}</span>
+          <span class="log-badge" style="background:rgba(239,68,68,0.15);color:#ef4444">${c.risk_level?.toUpperCase() || 'RED'}</span>
+        </div>
+        <div style="font-size:0.73rem;color:var(--muted);margin-top:4px">${(c.violations || []).join(' · ') || 'Compliance violation'}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="rules-loading">Error loading at-risk carriers.</div>`;
+  }
+}
+
+async function loadCoraAudits() {
+  const el = document.getElementById('coraAuditLog');
+  try {
+    const res = await fetch('/compliance/audits?limit=10');
+    const data = await res.json();
+    const audits = data.audits || [];
+    if (!audits.length) {
+      el.innerHTML = '<div class="rules-loading">No audits yet.</div>';
+      return;
+    }
+    el.innerHTML = audits.map(a => {
+      const color = a.risk_level === 'red' ? '#ef4444' : a.risk_level === 'yellow' ? '#f59e0b' : '#22c55e';
+      const ts = a.checked_at ? new Date(a.checked_at).toLocaleString() : '';
+      return `
+        <div class="log-entry">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:600">MC#${a.carrier_mc}</span>
+            <span class="log-badge" style="background:rgba(0,0,0,0.2);color:${color}">${(a.risk_level || 'green').toUpperCase()}</span>
+          </div>
+          <div style="font-size:0.72rem;color:var(--muted)">${ts}</div>
+          ${a.violations ? `<div style="font-size:0.73rem;color:var(--muted);margin-top:2px">${a.violations}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="rules-loading">Error loading audits.</div>`;
+  }
+}
+
+async function runCoraAudit() {
+  const mc = document.getElementById('coraAuditMC').value.trim();
+  const resultEl = document.getElementById('coraAuditResult');
+  if (!mc) { showToast('Missing MC#', 'Enter a carrier MC number.', 'warn'); return; }
+  const token = getToken();
+  resultEl.innerHTML = '<div style="font-size:0.78rem;color:var(--muted)">Running audit…</div>';
+  try {
+    const res = await fetch(`/compliance/audit/${mc}`, {
+      method: 'POST',
+      headers: { 'x-internal-token': token },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
+    const color = data.risk_level === 'red' ? '#ef4444' : data.risk_level === 'yellow' ? '#f59e0b' : '#22c55e';
+    const violations = data.violations?.length ? `<div style="margin-top:6px;font-size:0.73rem;color:var(--muted)">${data.violations.join('<br>')}</div>` : '';
+    resultEl.innerHTML = `
+      <div class="log-entry" style="border-left:3px solid ${color}">
+        <div style="font-weight:600">MC#${mc} — <span style="color:${color}">${(data.risk_level || 'green').toUpperCase()}</span></div>
+        <div style="font-size:0.73rem;color:var(--muted)">Overall passed: ${data.overall_passed ? '✓ Yes' : '✗ No'}</div>
+        ${violations}
+      </div>
+    `;
+    loadCoraAtRisk();
+    loadCoraAudits();
+    loadCoraStats();
+  } catch(e) {
+    resultEl.innerHTML = `<div style="font-size:0.78rem;color:var(--red)">Audit failed: ${e}</div>`;
   }
 }
 

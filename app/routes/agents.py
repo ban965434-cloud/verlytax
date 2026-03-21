@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db import get_db, Carrier, CarrierStatus, AutomationLog
-from app.services import verify_internal_token, run_agent, nova_alert_ceo
+from app.services import verify_internal_token, run_agent, nova_alert_ceo, retell_initiate_call
 
 router = APIRouter()
 
@@ -31,6 +31,13 @@ class SdrRequest(BaseModel):
     mc_number: str
     phone: Optional[str] = None
     context: Optional[str] = None       # Lane info, truck type, previous contact, etc.
+
+class VoiceCallRequest(BaseModel):
+    agent: str                          # "erin" | "ava" | "zara"
+    to_number: str                      # E.164 format: +1XXXXXXXXXX
+    carrier_mc: Optional[str] = None
+    carrier_name: Optional[str] = None
+    metadata: Optional[dict] = None     # Extra context passed to Retell agent
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -189,4 +196,56 @@ async def sdr_dan(
         "mc_number": data.mc_number,
         "drafted_sms": reply,
         "note": "Review and send via /webhooks or Nova SMS.",
+    }
+
+
+# ── Voice Call (Retell) ────────────────────────────────────────────────────────
+
+@router.post("/voice-call")
+async def initiate_voice_call(
+    data: VoiceCallRequest,
+    x_internal_token: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Initiate a Retell outbound voice call for any Verlytax voice agent.
+    All voice agents route through Retell — Erin (dispatch), Ava (qualification), Zara (support).
+    Requires INTERNAL_TOKEN.
+    """
+    if not verify_internal_token(x_internal_token):
+        raise HTTPException(403, "Invalid internal token.")
+
+    if data.agent not in ("erin", "ava", "zara"):
+        raise HTTPException(400, "agent must be 'erin', 'ava', or 'zara'.")
+
+    metadata = {
+        **(data.metadata or {}),
+        "carrier_mc": data.carrier_mc or "",
+        "caller_name": data.carrier_name or "",
+        "caller_phone": data.to_number,
+    }
+
+    result = await retell_initiate_call(
+        to_number=data.to_number,
+        agent=data.agent,
+        metadata=metadata,
+    )
+
+    if result["status"] == "error":
+        raise HTTPException(502, f"Retell call failed: {result['reason']}")
+
+    await _log(
+        db,
+        agent=data.agent,
+        action_type="voice_call_initiated",
+        description=f"Outbound call to {data.to_number} via {data.agent.title()} (Retell)",
+        result="initiated",
+        carrier_mc=data.carrier_mc,
+    )
+
+    return {
+        "agent": data.agent,
+        "call_id": result["call_id"],
+        "to_number": data.to_number,
+        "status": "initiated",
     }

@@ -10,7 +10,7 @@ import hashlib
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 
-from app.services import nova_alert_ceo, nova_sms, erin_respond, verify_twilio_signature, recall_memories
+from app.services import nova_alert_ceo, nova_sms, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, RETELL_AGENT_IDS
 
 router = APIRouter()
 
@@ -145,16 +145,167 @@ async def retell_callback(request: Request):
 
     data = await request.json() if body else {}
     call_event = data.get("event")
+    call_id = data.get("call_id") or data.get("id")
     transcript = data.get("transcript", "")
+    call_analysis = data.get("call_analysis", {})
+    metadata = data.get("metadata", {})
+    call_successful = call_analysis.get("call_successful", False)
 
-    if call_event == "call_ended" and transcript:
-        # Log call summary — Erin reviews
-        nova_alert_ceo(
-            subject="Call Ended — Review",
-            body=f"Call transcript summary:\n{transcript[:500]}",
-        )
+    # Identify which voice agent handled this call
+    incoming_agent_id = data.get("agent_id", "")
+    verlytax_agent = metadata.get("verlytax_agent", "")  # set by retell_initiate_call()
 
-    return {"status": "received", "event": call_event}
+    # Resolve agent name from env var map if not in metadata
+    if not verlytax_agent:
+        for name, env_key in RETELL_AGENT_IDS.items():
+            if incoming_agent_id and incoming_agent_id == os.getenv(env_key, ""):
+                verlytax_agent = name
+                break
+
+    from app.db import AsyncSessionLocal, SupportTicket, Carrier, CarrierStatus
+    from sqlalchemy import select
+    from datetime import datetime
+
+    # ── Zara — support ticket call ─────────────────────────────────────────────
+    if verlytax_agent == "zara" or metadata.get("ticket_id"):
+        ticket_id = metadata.get("ticket_id")
+        async with AsyncSessionLocal() as session:
+            ticket = None
+            if ticket_id:
+                ticket = await session.get(SupportTicket, int(ticket_id))
+            if not ticket and call_id:
+                result = await session.execute(
+                    select(SupportTicket).where(SupportTicket.voice_call_id == call_id)
+                )
+                ticket = result.scalar_one_or_none()
+
+            if ticket:
+                ticket.voice_transcript = transcript[:4000] if transcript else None
+                ticket.updated_at = datetime.utcnow()
+                if call_successful:
+                    ticket.status = "resolved"
+                    ticket.resolved_at = datetime.utcnow()
+                    ticket.resolution = f"Resolved via Retell voice call. Call ID: {call_id}"
+                await session.commit()
+
+                nova_alert_ceo(
+                    subject=f"Zara Voice Call Ended — {ticket.ticket_number}",
+                    body=(
+                        f"Call ID: {call_id}\n"
+                        f"Ticket: {ticket.ticket_number} | Carrier: MC#{ticket.carrier_mc or 'unknown'}\n"
+                        f"Outcome: {'Resolved ✓' if call_successful else 'Needs follow-up'}\n"
+                        f"Transcript preview:\n{(transcript or 'No transcript')[:400]}"
+                    ),
+                )
+                log_automation(
+                    agent="zara", action_type="voice_call_ended",
+                    description=f"{ticket.ticket_number} — {'resolved' if call_successful else 'needs follow-up'}",
+                    result="resolved" if call_successful else "escalated",
+                    carrier_mc=ticket.carrier_mc,
+                )
+                return {"status": "ticket_updated", "ticket_number": ticket.ticket_number, "agent": "zara"}
+
+    # ── Ava — inbound new lead qualification call ───────────────────────────────
+    elif verlytax_agent == "ava":
+        caller_name = metadata.get("caller_name", "Unknown")
+        caller_phone = metadata.get("caller_phone") or data.get("from_number", "")
+        caller_mc = metadata.get("mc_number")
+
+        if call_event == "call_ended" and transcript:
+            # Run Ava agent to analyze transcript and determine qualification
+            import asyncio
+            context = (
+                f"Caller: {caller_name} | Phone: {caller_phone} | MC#: {caller_mc or 'unknown'}\n"
+                f"Call transcript:\n{transcript[:2000]}"
+            )
+            qualification = await asyncio.to_thread(
+                run_agent, "RECEPTIONIST.md",
+                "Based on this call transcript, did this carrier qualify? Summarize: yes/no and why.",
+                context,
+            )
+
+            # Auto-create lead if MC# was mentioned
+            if caller_mc:
+                async with AsyncSessionLocal() as session:
+                    existing = await session.execute(
+                        select(Carrier).where(Carrier.mc_number == caller_mc)
+                    )
+                    if not existing.scalar_one_or_none():
+                        carrier = Carrier(
+                            mc_number=caller_mc,
+                            name=caller_name,
+                            phone=caller_phone,
+                            status=CarrierStatus.LEAD,
+                            notes=f"Inbound voice call via Retell/Ava. Call ID: {call_id}",
+                        )
+                        session.add(carrier)
+                        await session.commit()
+
+            nova_alert_ceo(
+                subject=f"Ava Inbound Call — {caller_name}",
+                body=(
+                    f"Caller: {caller_name} | Phone: {caller_phone} | MC#: {caller_mc or 'unknown'}\n"
+                    f"Call ID: {call_id}\n\n"
+                    f"Ava's assessment:\n{qualification}\n\n"
+                    f"Transcript preview:\n{transcript[:400]}"
+                ),
+            )
+            log_automation(
+                agent="ava", action_type="inbound_voice_call",
+                description=f"Inbound call from {caller_name} ({caller_phone}) — {call_id}",
+                result="qualified" if call_successful else "reviewed",
+                carrier_mc=caller_mc,
+            )
+        return {"status": "processed", "agent": "ava", "call_id": call_id}
+
+    # ── Erin — inbound carrier dispatch call ───────────────────────────────────
+    elif verlytax_agent == "erin":
+        carrier_mc = metadata.get("carrier_mc")
+        carrier_phone = data.get("from_number", "")
+
+        if call_event == "call_ended" and transcript:
+            # Erin reviews the transcript for anything requiring action
+            import asyncio
+            context = (
+                f"Carrier MC#: {carrier_mc or 'unknown'} | Phone: {carrier_phone}\n"
+                f"Call transcript:\n{transcript[:2000]}"
+            )
+            erin_summary = await asyncio.to_thread(
+                erin_respond,
+                "Review this call transcript. Identify any action items, commitments made, or issues requiring follow-up. Be specific.",
+                context,
+            )
+
+            nova_alert_ceo(
+                subject=f"Erin Inbound Call Ended — MC#{carrier_mc or 'unknown'}",
+                body=(
+                    f"Carrier: MC#{carrier_mc or 'unknown'} | Phone: {carrier_phone}\n"
+                    f"Call ID: {call_id}\n\n"
+                    f"Erin's action items:\n{erin_summary}\n\n"
+                    f"Transcript preview:\n{transcript[:400]}"
+                ),
+            )
+            log_automation(
+                agent="erin", action_type="inbound_voice_call",
+                description=f"Inbound dispatch call from MC#{carrier_mc or 'unknown'} — {call_id}",
+                result="reviewed",
+                carrier_mc=carrier_mc,
+            )
+        return {"status": "processed", "agent": "erin", "call_id": call_id}
+
+    # ── Unrouted call — log and alert Delta ────────────────────────────────────
+    else:
+        if call_event == "call_ended" and transcript:
+            nova_alert_ceo(
+                subject=f"Unrouted Voice Call Ended — {call_id or 'unknown'}",
+                body=(
+                    f"Agent ID: {incoming_agent_id}\n"
+                    f"Call ID: {call_id}\n"
+                    f"Transcript:\n{transcript[:500]}"
+                ),
+            )
+
+    return {"status": "received", "event": call_event, "agent": verlytax_agent or "unknown"}
 
 
 # ── Internal Webhook (Brain/automation triggers) ──────────────────────────────

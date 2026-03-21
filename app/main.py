@@ -13,8 +13,8 @@ from pydantic import BaseModel
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus, AutomationRule, AutomationLog, AgentMemory
-from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya
+from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus, AutomationRule, AutomationLog, AgentMemory, ComplianceAudit, SupportTicket
+from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya, compliance, support
 from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, log_automation, store_memory, run_agent
 
 from sqlalchemy import select
@@ -548,6 +548,190 @@ async def mya_learn():
         )
 
 
+async def cora_compliance_scan():
+    """
+    Weekly (Mondays 7:30 AM UTC) — Cora audits all active + trial carriers for compliance.
+    GREEN: no action. YELLOW: SMS carrier + Delta summary. RED: suspend + immediate Delta alert.
+    Rule key: cora_compliance_scan
+    """
+    if not await _rule_enabled("cora_compliance_scan"):
+        return
+
+    from app.routes.compliance import run_carrier_audit
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Carrier).where(
+                Carrier.status.in_([CarrierStatus.ACTIVE, CarrierStatus.TRIAL]),
+                Carrier.is_blocked == False,
+            )
+        )
+        carriers_to_check = result.scalars().all()
+
+    green, yellow, red = [], [], []
+
+    for carrier in carriers_to_check:
+        audit = run_carrier_audit(carrier)
+        risk = audit["risk_level"]
+
+        # Store audit record
+        async with AsyncSessionLocal() as session:
+            audit_record = ComplianceAudit(
+                carrier_mc=carrier.mc_number,
+                checked_by="cora",
+                checked_at=datetime.utcnow(),
+                authority_age_days=audit.get("authority_age_days"),
+                authority_passed=audit.get("authority_passed", False),
+                safety_rating=audit.get("safety_rating"),
+                safety_passed=audit.get("safety_passed", False),
+                clearinghouse_passed=audit.get("clearinghouse_passed", False),
+                clearinghouse_data_age_days=audit.get("clearinghouse_data_age_days"),
+                coi_expiry=audit.get("coi_expiry"),
+                coi_valid=audit.get("coi_valid", False),
+                coi_days_remaining=audit.get("coi_days_remaining"),
+                insurance_auto_amount=audit.get("insurance_auto_amount"),
+                insurance_auto_passed=audit.get("insurance_auto_passed", False),
+                insurance_cargo_amount=audit.get("insurance_cargo_amount"),
+                insurance_cargo_passed=audit.get("insurance_cargo_passed", False),
+                nds_enrolled=audit.get("nds_enrolled", False),
+                overall_passed=audit.get("overall_passed", False),
+                risk_level=risk,
+                violations=str(audit.get("violations", [])),
+            )
+            session.add(audit_record)
+
+            if risk == "red":
+                c = await session.get(Carrier, carrier.id)
+                if c and c.status != CarrierStatus.SUSPENDED:
+                    c.status = CarrierStatus.SUSPENDED
+            await session.commit()
+
+        if risk == "red":
+            red.append(carrier)
+            violations = audit.get("violations", [])
+            if carrier.phone:
+                nova_sms(
+                    carrier.phone,
+                    f"Hi {carrier.name.split()[0]}, this is Cora with Verlytax Compliance. "
+                    f"Your account has been paused due to a compliance issue: {'; '.join(violations[:2])}. "
+                    f"Please contact ops@verlytax.com immediately to reinstate your account."
+                )
+            nova_alert_ceo(
+                subject=f"COMPLIANCE RED — MC#{carrier.mc_number} SUSPENDED",
+                body=(
+                    f"Carrier: {carrier.name} MC#{carrier.mc_number}\n"
+                    f"Violations: {chr(10).join(violations)}\n"
+                    f"Status: Suspended immediately. Only Delta can reinstate."
+                ),
+            )
+            log_automation(
+                agent="cora", action_type="compliance_red",
+                description=f"Suspended: {'; '.join(violations[:3])}",
+                result="suspended", carrier_mc=carrier.mc_number, escalated_to_delta=True,
+            )
+
+        elif risk == "yellow":
+            yellow.append(carrier)
+            warnings = audit.get("violations", [])
+            if carrier.phone:
+                nova_sms(
+                    carrier.phone,
+                    f"Hi {carrier.name.split()[0]}, this is Cora with Verlytax Compliance. "
+                    f"Action needed: {'; '.join(warnings[:2])}. "
+                    f"Please update your documents at ops@verlytax.com within 7 days to avoid a dispatch hold."
+                )
+            log_automation(
+                agent="cora", action_type="compliance_yellow",
+                description=f"Warning: {'; '.join(warnings[:3])}",
+                result="warned", carrier_mc=carrier.mc_number,
+            )
+
+        else:
+            green.append(carrier.mc_number)
+
+    if yellow or red:
+        nova_alert_ceo(
+            subject=f"Cora Weekly Scan — {len(red)} RED, {len(yellow)} YELLOW",
+            body=(
+                f"Compliance scan complete. {len(carriers_to_check)} carriers checked.\n\n"
+                f"RED (suspended): {', '.join(f'MC#{c.mc_number}' for c in red) or 'none'}\n"
+                f"YELLOW (warned): {', '.join(f'MC#{c.mc_number}' for c in yellow) or 'none'}\n"
+                f"GREEN: {len(green)}"
+            ),
+        )
+
+    log_automation(
+        agent="cora", action_type="weekly_scan_complete",
+        description=f"Checked {len(carriers_to_check)}: {len(green)} green, {len(yellow)} yellow, {len(red)} red",
+        result="complete",
+    )
+
+
+async def support_ticket_sweep():
+    """
+    Daily at 9:30 AM UTC — Zara follows up on open tickets and auto-escalates stale ones.
+    Rule key: support_ticket_sweep
+    """
+    if not await _rule_enabled("support_ticket_sweep"):
+        return
+
+    from datetime import timedelta
+    now = datetime.utcnow()
+    over_24h = now - timedelta(hours=24)
+    over_48h = now - timedelta(hours=48)
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(SupportTicket).where(
+                SupportTicket.status.in_(["open", "in_progress"]),
+                SupportTicket.created_at <= over_24h,
+            )
+        )
+        stale_tickets = result.scalars().all()
+
+    for ticket in stale_tickets:
+        async with AsyncSessionLocal() as session:
+            t = await session.get(SupportTicket, ticket.id)
+            if not t:
+                continue
+
+            # Auto-escalate tickets over 48h with no resolution
+            if t.created_at <= over_48h and t.status != "escalated":
+                t.status = "escalated"
+                t.assigned_to = "delta"
+                t.escalation_reason = "Auto-escalated: open >48 hours with no resolution"
+                t.updated_at = now
+                await session.commit()
+                nova_alert_ceo(
+                    subject=f"Ticket Auto-Escalated — {t.ticket_number}",
+                    body=(
+                        f"Ticket {t.ticket_number} has been open 48+ hours with no resolution.\n"
+                        f"Carrier: MC#{t.carrier_mc or 'unknown'}\n"
+                        f"Subject: {t.subject}\n"
+                        f"Category: {t.category} | Priority: {t.priority}"
+                    ),
+                )
+                log_automation(
+                    agent="zara", action_type="ticket_auto_escalated",
+                    description=f"{t.ticket_number} auto-escalated after 48h",
+                    result="escalated", carrier_mc=t.carrier_mc, escalated_to_delta=True,
+                )
+
+            elif t.status in ("open", "in_progress") and t.phone:
+                # Send follow-up SMS for tickets open 24-48h
+                nova_sms(
+                    t.phone,
+                    f"Hi, this is Zara with Verlytax Support following up on ticket {t.ticket_number}: "
+                    f"\"{t.subject}\". We're still working on this and will have a resolution shortly. "
+                    f"Reply anytime with updates."
+                )
+                log_automation(
+                    agent="zara", action_type="ticket_followup_sms",
+                    description=f"{t.ticket_number} follow-up SMS sent (open >24h)",
+                    result="sent", carrier_mc=t.carrier_mc,
+                )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -602,6 +786,18 @@ async def lifespan(app: FastAPI):
         id="mya_learn",
         replace_existing=True,
     )
+    scheduler.add_job(
+        cora_compliance_scan,
+        CronTrigger(day_of_week="mon", hour=7, minute=30, timezone="UTC"),
+        id="cora_compliance_scan",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        support_ticket_sweep,
+        CronTrigger(hour=9, minute=30, timezone="UTC"),
+        id="support_ticket_sweep",
+        replace_existing=True,
+    )
     scheduler.start()
 
     yield
@@ -633,6 +829,8 @@ app.include_router(brain.router, prefix="/brain", tags=["Brain"])
 app.include_router(agents.router, prefix="/agents", tags=["Agents"])
 app.include_router(workflows.router, prefix="/workflows", tags=["Workflows"])
 app.include_router(mya.router, prefix="/mya", tags=["Mya"])
+app.include_router(compliance.router, prefix="/compliance", tags=["Compliance"])
+app.include_router(support.router, prefix="/support", tags=["Support"])
 
 
 @app.get("/", response_class=HTMLResponse)
