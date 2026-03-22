@@ -1191,16 +1191,24 @@
       <div class="brain-section-title">⚡ Nova Command Center
         <span style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);font-weight:400;text-transform:none;letter-spacing:0">Test scenarios without Twilio. Every run is logged to CEO shadow + SOP training log.</span>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <div style="font-size:0.7rem;color:var(--muted);margin:6px 0 4px">CEO Commands</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="wf-btn" onclick="runNovaScenario('STATUS','STATUS command')">📊 STATUS</button>
         <button class="wf-btn" onclick="runNovaScenario('BRIEF','BRIEF command')">📋 BRIEF</button>
+        <button class="wf-btn" onclick="runNovaScenario('ACTIVATE CEO','ACTIVATE CEO mode')">🤖 ACTIVATE CEO</button>
+        <button class="wf-btn" onclick="runNovaScenario('REPORT','daily REPORT')">📈 REPORT</button>
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);margin:10px 0 4px">Dispatch Controls</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="wf-btn wf-btn-alt" onclick="runNovaScenario('HALT ALL','HALT ALL flow')">🔴 HALT ALL</button>
         <button class="wf-btn" style="background:var(--green)" onclick="runNovaScenario('RESUME','RESUME command')">▶ RESUME</button>
+        <button class="wf-btn wf-btn-alt" onclick="novaHaltCarrier()">🚫 HALT MC#</button>
+        <button class="wf-btn" onclick="novaEscalate()">🚨 ESCALATE</button>
       </div>
     </div>
 
     <div class="brain-section">
-      <div class="brain-section-title">💬 Free-Text Command</div>
+      <div class="brain-section-title">💬 Nova Free-Text Command</div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <input type="text" id="novaTestInput" class="teach-input" style="flex:1" placeholder="Type any message to Nova… (e.g. HALT MC#123456, BRIEF, STATUS)">
         <button class="wf-btn" onclick="sendNovaFreeText()">Send</button>
@@ -1212,6 +1220,43 @@
       <div id="novaResponseBox" style="background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:16px;min-height:80px;font-size:0.82rem;line-height:1.6;color:var(--text);white-space:pre-wrap;display:none"></div>
       <div id="novaResponsePlaceholder" style="background:var(--glass);border:1px dashed var(--border);border-radius:10px;padding:16px;min-height:80px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.8rem">
         Send a command above to see Nova's response here.
+      </div>
+    </div>
+
+    <!-- ── Erin Test Section ──────────────────────────────────────────────── -->
+    <div class="brain-section" style="border-top:2px solid var(--border);padding-top:18px;margin-top:4px">
+      <div class="brain-section-title">🟣 Erin Test Panel
+        <span style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);font-weight:400;text-transform:none;letter-spacing:0">Test Erin's dispatch responses without Twilio.</span>
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);margin:6px 0 4px">Load & Dispatch Scenarios</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="wf-btn" onclick="runErinScenario('I have a load TX to GA, 600 miles, $3.10/mile, 42,000 lbs. Can we book it?','load_check')">📦 Load Check</button>
+        <button class="wf-btn" onclick="runErinScenario('Carrier MC#123456 delivered. Can we release the BOL?','bol_release')">📄 BOL Release</button>
+        <button class="wf-btn" onclick="runErinScenario('What is the dispatch fee for a carrier active for 3 months on a $2,800 load?','fee_calc')">💰 Fee Calc</button>
+        <button class="wf-btn wf-btn-alt" onclick="runErinScenario('Carrier is threatening to leave Verlytax. What do we do?','churn_risk')">⚠ Churn Risk</button>
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);margin:10px 0 4px">Carrier & Compliance Scenarios</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="wf-btn" onclick="runErinScenario('Can we dispatch a carrier with a Conditional safety rating?','iron_rule_5')">🚨 Iron Rule 5</button>
+        <button class="wf-btn" onclick="runErinScenario('Carrier wants a load going to Miami, FL. Origin TX.','iron_rule_1')">🚫 FL Load Block</button>
+        <button class="wf-btn" onclick="runErinScenario('Load is $2.10/mile — broker says take it or leave it.','low_rpm')">📉 Low RPM</button>
+        <button class="wf-btn" onclick="runErinScenario('Carrier COI expires in 15 days. What should we do?','coi_expiry')">📋 COI Expiry</button>
+      </div>
+    </div>
+
+    <div class="brain-section">
+      <div class="brain-section-title">💬 Erin Free-Text</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="text" id="erinTestInput" class="teach-input" style="flex:1" placeholder="Ask Erin anything… (e.g. Book a load, Check carrier status, Fee question)">
+        <button class="wf-btn" onclick="sendErinFreeText()">Send</button>
+      </div>
+    </div>
+
+    <div class="brain-section">
+      <div class="brain-section-title">📨 Erin Response <button class="log-refresh-btn" id="erinResponseClear" onclick="clearErinResponse()" style="display:none">✕ Clear</button></div>
+      <div id="erinResponseBox" style="background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:16px;min-height:80px;font-size:0.82rem;line-height:1.6;color:var(--text);white-space:pre-wrap;display:none"></div>
+      <div id="erinResponsePlaceholder" style="background:var(--glass);border:1px dashed var(--border);border-radius:10px;padding:16px;min-height:80px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.8rem">
+        Send a scenario above to see Erin's response here.
       </div>
     </div>
 
@@ -2193,12 +2238,74 @@ async function runNovaScenario(message, label) {
   await _novaTest(message, label);
 }
 
+function novaHaltCarrier() {
+  const mc = prompt('Enter MC number to HALT:');
+  if (!mc) return;
+  runNovaScenario(`HALT MC#${mc.trim()}`, 'HALT carrier');
+}
+
+function novaEscalate() {
+  const detail = prompt('Describe the escalation scenario:');
+  if (!detail) return;
+  runNovaScenario(`ESCALATE: ${detail.trim()}`, 'escalation test');
+}
+
 async function sendNovaFreeText() {
   const input = document.getElementById('novaTestInput');
   const msg = input.value.trim();
   if (!msg) return;
   input.value = '';
   await _novaTest(msg, 'free_text');
+}
+
+// ── Erin Test Panel ───────────────────────────────────────────────────────────
+
+async function runErinScenario(message, label) {
+  await _erinTest(message, label);
+}
+
+async function sendErinFreeText() {
+  const input = document.getElementById('erinTestInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  await _erinTest(msg, 'free_text');
+}
+
+async function _erinTest(message, scenario) {
+  const box = document.getElementById('erinResponseBox');
+  const placeholder = document.getElementById('erinResponsePlaceholder');
+  const clearBtn = document.getElementById('erinResponseClear');
+
+  box.style.display = 'none';
+  placeholder.style.display = 'flex';
+  placeholder.textContent = '⏳ Erin is responding…';
+
+  try {
+    const res = await fetch('/erin/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Error');
+
+    box.textContent = `[Scenario: ${scenario}]\n\n` + data.reply;
+    box.style.display = 'block';
+    placeholder.style.display = 'none';
+    clearBtn.style.display = 'inline-block';
+  } catch (e) {
+    placeholder.style.display = 'flex';
+    placeholder.textContent = '⚠ ' + e.message;
+  }
+}
+
+function clearErinResponse() {
+  document.getElementById('erinResponseBox').style.display = 'none';
+  document.getElementById('erinResponseBox').textContent = '';
+  document.getElementById('erinResponsePlaceholder').style.display = 'flex';
+  document.getElementById('erinResponsePlaceholder').textContent = 'Send a scenario above to see Erin\'s response here.';
+  document.getElementById('erinResponseClear').style.display = 'none';
 }
 
 async function _novaTest(message, scenario) {
