@@ -12,7 +12,9 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 
+from fastapi import Header
 from app.db import get_db, Carrier, CarrierStatus
+from app.services import fmcsa_search_carriers, dat_search_carriers, verify_internal_token, log_automation
 
 router = APIRouter()
 
@@ -226,3 +228,90 @@ async def export_carriers_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+# ── Manual Lead Generation Trigger ────────────────────────────────────────────
+
+LEAD_GEN_DEFAULT_STATES = [
+    "TX",
+    "IL", "IN", "OH", "MI", "MO", "IA", "MN", "WI", "KS", "NE",
+    "GA", "AL", "MS", "TN", "SC", "NC", "VA", "KY",
+]
+MAX_LEADS_PER_STATE = 50
+MAX_LEADS_PER_RUN = 200
+
+
+class GenerateLeadsRequest(BaseModel):
+    states: Optional[list[str]] = None  # Override target states; defaults to LEAD_GEN_DEFAULT_STATES
+
+
+@router.post("/generate-leads")
+async def generate_leads(
+    body: GenerateLeadsRequest = GenerateLeadsRequest(),
+    x_internal_token: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Manually trigger FMCSA + DAT lead generation. Same logic as the daily 6:30 AM cron.
+    Accepts optional `states` list to override the default target states.
+    Requires INTERNAL_TOKEN header.
+    """
+    if not verify_internal_token(x_internal_token or ""):
+        raise HTTPException(403, "Unauthorized")
+
+    target_states = body.states or LEAD_GEN_DEFAULT_STATES
+    now = datetime.utcnow()
+    new_count = 0
+    skipped_count = 0
+    states_queried = []
+
+    for state in target_states:
+        if new_count >= MAX_LEADS_PER_RUN:
+            break
+
+        fmcsa_results = await fmcsa_search_carriers(state, limit=MAX_LEADS_PER_STATE)
+        dat_results = await dat_search_carriers([state], limit=MAX_LEADS_PER_STATE)
+        combined = {c["mc_number"]: c for c in fmcsa_results + dat_results}
+
+        if not combined:
+            continue
+        states_queried.append(state)
+
+        for mc_number, lead in combined.items():
+            if new_count >= MAX_LEADS_PER_RUN:
+                break
+            existing = await db.execute(select(Carrier).where(Carrier.mc_number == mc_number))
+            if existing.scalar_one_or_none():
+                skipped_count += 1
+                continue
+
+            db.add(Carrier(
+                mc_number=mc_number,
+                name=lead["name"],
+                phone=lead.get("phone") or None,
+                dot_number=lead.get("dot_number") or None,
+                truck_type="dry_van",
+                status=CarrierStatus.LEAD,
+                notes=(
+                    f"Auto-generated lead via {lead.get('source', 'fmcsa').upper()} — "
+                    f"State: {lead.get('state', state)} — "
+                    f"Authority age: {lead.get('authority_age_days') or 'unknown'} days — "
+                    f"Seeded: {now.strftime('%Y-%m-%d')}"
+                ),
+            ))
+            new_count += 1
+
+    await db.commit()
+
+    log_automation(
+        agent="mya",
+        action_type="fmcsa_lead_gen_manual",
+        description=f"Manual lead gen triggered across {len(states_queried)} states",
+        result=f"{new_count} new leads added, {skipped_count} duplicates skipped",
+    )
+
+    return {
+        "new_leads": new_count,
+        "skipped": skipped_count,
+        "states_queried": states_queried,
+    }

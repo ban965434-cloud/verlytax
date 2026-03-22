@@ -20,6 +20,17 @@ from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate
 from sqlalchemy import select
 from datetime import datetime
 
+# ── Lead Gen target states (Phase 1: Texas + Midwest + Southeast, no FL) ─────
+LEAD_GEN_STATES = [
+    "TX",                                    # Texas
+    "IL", "IN", "OH", "MI", "MO",           # Midwest core
+    "IA", "MN", "WI", "KS", "NE",           # Midwest extended
+    "GA", "AL", "MS", "TN", "SC",           # Southeast
+    "NC", "VA", "KY",                        # Southeast extended
+]
+MAX_LEADS_PER_STATE = 50
+MAX_LEADS_PER_RUN = 200
+
 
 async def check_trial_touchpoints():
     """
@@ -732,6 +743,157 @@ async def support_ticket_sweep():
                 )
 
 
+async def megan_sdr_outreach():
+    """
+    Daily at 11:00 AM UTC — Megan auto-contacts stale leads (no activity in 14+ days).
+    Pulls up to 20 leads per run, drafts personalized SMS via Claude, sends via Nova.
+    Rule key: megan_sdr_outreach
+    """
+    if not await _rule_enabled("megan_sdr_outreach"):
+        return
+
+    from datetime import timedelta
+
+    now = datetime.utcnow()
+    cutoff = now - timedelta(days=14)
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Carrier).where(
+                Carrier.status == CarrierStatus.LEAD,
+                Carrier.phone.isnot(None),
+                Carrier.is_blocked == False,
+                Carrier.created_at < cutoff,
+            ).limit(20)
+        )
+        leads = result.scalars().all()
+
+    if not leads:
+        log_automation(
+            agent="megan_sdr", action_type="daily_sdr_outreach",
+            description="Daily SDR run — no stale leads found", result="skipped",
+        )
+        return
+
+    sent, failed = [], []
+
+    for lead in leads:
+        try:
+            context = (
+                f"Carrier: {lead.name} | MC#{lead.mc_number}\n"
+                f"Phone: {lead.phone}\n"
+                f"Lead since: {lead.created_at.strftime('%B %d, %Y')}\n"
+                f"Days as lead: {(now - lead.created_at).days}\n"
+                f"Notes: {lead.notes or 'none'}"
+            )
+            prompt = (
+                f"Draft a short, professional outbound SMS to {lead.name} (MC#{lead.mc_number}) "
+                f"who has been a lead for {(now - lead.created_at).days} days with no conversion. "
+                f"Re-engage them — be specific, warm, and close with one clear next step."
+            )
+            draft = await asyncio.to_thread(run_agent, "SDR_MEGAN.md", prompt, context)
+            nova_sms(lead.phone, draft)
+            sent.append(f"{lead.name} MC#{lead.mc_number}")
+            log_automation(
+                agent="megan_sdr", action_type="daily_sdr_outreach",
+                description=f"Outreach SMS sent to {lead.name} MC#{lead.mc_number}",
+                result="sent", carrier_mc=lead.mc_number,
+            )
+        except Exception as e:
+            failed.append(f"{lead.name} MC#{lead.mc_number}")
+            log_automation(
+                agent="megan_sdr", action_type="daily_sdr_outreach",
+                description=f"Outreach failed for {lead.name} MC#{lead.mc_number}: {str(e)}",
+                result="error", carrier_mc=lead.mc_number,
+            )
+
+    nova_alert_ceo(
+        subject=f"Megan SDR Daily Run — {len(sent)}/{len(leads)} sent",
+        body=(
+            f"Daily outreach complete.\n"
+            f"Sent ({len(sent)}): {', '.join(sent) or 'none'}\n"
+            f"Failed ({len(failed)}): {', '.join(failed) or 'none'}"
+        ),
+    )
+
+
+async def fmcsa_lead_gen():
+    """
+    Daily at 6:30 AM UTC — queries FMCSA (and DAT when key is set) for qualifying dry van
+    carriers across target states and auto-seeds them as LEAD in the DB.
+    Runs 30 min before compliance scans, 4.5 hrs before Megan's outreach.
+    Rule key: fmcsa_lead_gen
+    """
+    if not await _rule_enabled("fmcsa_lead_gen"):
+        return
+
+    now = datetime.utcnow()
+    new_count = 0
+    skipped_count = 0
+    states_queried = []
+
+    async with AsyncSessionLocal() as session:
+        for state in LEAD_GEN_STATES:
+            if new_count >= MAX_LEADS_PER_RUN:
+                break
+
+            fmcsa_results = await fmcsa_search_carriers(state, limit=MAX_LEADS_PER_STATE)
+            dat_results = await dat_search_carriers([state], limit=MAX_LEADS_PER_STATE)
+            combined = {c["mc_number"]: c for c in fmcsa_results + dat_results}  # dedup by MC#
+
+            if not combined:
+                continue
+            states_queried.append(state)
+
+            for mc_number, lead in combined.items():
+                if new_count >= MAX_LEADS_PER_RUN:
+                    break
+                # Skip if already in DB
+                existing = await session.execute(
+                    select(Carrier).where(Carrier.mc_number == mc_number)
+                )
+                if existing.scalar_one_or_none():
+                    skipped_count += 1
+                    continue
+
+                session.add(Carrier(
+                    mc_number=mc_number,
+                    name=lead["name"],
+                    phone=lead.get("phone") or None,
+                    dot_number=lead.get("dot_number") or None,
+                    truck_type="dry_van",
+                    status=CarrierStatus.LEAD,
+                    notes=(
+                        f"Auto-generated lead via {lead.get('source', 'fmcsa').upper()} — "
+                        f"State: {lead.get('state', state)} — "
+                        f"Authority age: {lead.get('authority_age_days') or 'unknown'} days — "
+                        f"Seeded: {now.strftime('%Y-%m-%d')}"
+                    ),
+                ))
+                new_count += 1
+
+        await session.commit()
+
+    log_automation(
+        agent="mya",
+        action_type="fmcsa_lead_gen",
+        description=f"Lead gen ran across {len(states_queried)} states",
+        result=f"{new_count} new leads added, {skipped_count} duplicates skipped",
+    )
+
+    if new_count > 0:
+        nova_alert_ceo(
+            subject=f"Lead Gen — {new_count} new carriers added",
+            body=(
+                f"Daily FMCSA/DAT lead gen complete.\n"
+                f"New leads: {new_count}\n"
+                f"Skipped (duplicates): {skipped_count}\n"
+                f"States queried: {', '.join(states_queried) or 'none'}\n"
+                f"Megan will contact stale leads at 11:00 AM UTC."
+            ),
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -796,6 +958,18 @@ async def lifespan(app: FastAPI):
         support_ticket_sweep,
         CronTrigger(hour=9, minute=30, timezone="UTC"),
         id="support_ticket_sweep",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        megan_sdr_outreach,
+        CronTrigger(hour=11, minute=0, timezone="UTC"),
+        id="megan_sdr_outreach",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        fmcsa_lead_gen,
+        CronTrigger(hour=6, minute=30, timezone="UTC"),
+        id="fmcsa_lead_gen",
         replace_existing=True,
     )
     scheduler.start()

@@ -1,6 +1,6 @@
 """
 Verlytax OS v4 — Agent Dispatch Routes
-Wire Receptionist, Megan SDR, and Dan SDR to live API endpoints.
+Wire Receptionist and Megan SDR to live API endpoints.
 All require INTERNAL_TOKEN. All actions logged to automation_logs.
 """
 

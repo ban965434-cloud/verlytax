@@ -1,6 +1,6 @@
 """
 Verlytax OS v4 — Multi-Agent Workflow Pipelines
-Chains Receptionist, Megan, Dan, Nova, and Brain together into automated sequences.
+Chains Receptionist, Megan, Nova, and Brain together into automated sequences.
 All pipeline runs are logged to automation_logs for full audit trail.
 """
 
@@ -34,8 +34,7 @@ class InboundQualifyRequest(BaseModel):
 
 class OutboundBlastRequest(BaseModel):
     limit: int = 10                         # Max leads to contact in one blast
-    sdr: str = "megan"                      # "megan" or "dan"
-    context: Optional[str] = None          # Extra context passed to the SDR
+    context: Optional[str] = None          # Extra context passed to Megan
 
 class ManualTriggerRequest(BaseModel):
     scan_type: str                          # "overdue_loads" | "no_load_carriers" | "stale_leads" | "all"
@@ -183,7 +182,7 @@ async def workflow_outbound_blast(
     """
     Outbound campaign pipeline:
       1. Brain pulls up to {limit} stale leads (no contact in 14 days)
-      2. Megan or Dan drafts a personalized SMS for each
+      2. Megan drafts a personalized SMS for each
       3. Nova sends each SMS immediately
       4. All sends logged to automation_logs
       5. Delta gets a blast summary
@@ -191,14 +190,8 @@ async def workflow_outbound_blast(
     if not verify_internal_token(x_internal_token):
         raise HTTPException(403, "Invalid internal token.")
 
-    if data.sdr not in ("megan", "dan"):
-        raise HTTPException(400, "sdr must be 'megan' or 'dan'.")
-
     if data.limit > 50:
         raise HTTPException(400, "Max blast limit is 50 per run.")
-
-    sdr_file = "SDR_MEGAN.md" if data.sdr == "megan" else "SDR_DAN.md"
-    sdr_name = "Megan SDR" if data.sdr == "megan" else "Dan SDR"
 
     started_at = datetime.utcnow()
     cutoff = started_at - timedelta(days=14)
@@ -239,11 +232,11 @@ async def workflow_outbound_blast(
                 f"Re-engage them — be direct, specific, and close with a clear next step."
             )
 
-            draft = await asyncio.to_thread(run_agent, sdr_file, sdr_prompt, sdr_context)
+            draft = await asyncio.to_thread(run_agent, "SDR_MEGAN.md", sdr_prompt, sdr_context)
             nova_sms(lead.phone, draft)
 
             await _log(
-                db, agent=f"{data.sdr}_sdr", action_type="workflow_outbound_blast",
+                db, agent="megan_sdr", action_type="workflow_outbound_blast",
                 description=f"Outbound blast SMS sent to {lead.name} MC#{lead.mc_number}",
                 result="sent", carrier_mc=lead.mc_number,
             )
@@ -252,7 +245,7 @@ async def workflow_outbound_blast(
         except Exception as e:
             failed.append(f"{lead.name} MC#{lead.mc_number} — {str(e)}")
             await _log(
-                db, agent=f"{data.sdr}_sdr", action_type="workflow_outbound_blast",
+                db, agent="megan_sdr", action_type="workflow_outbound_blast",
                 description=f"Blast failed for {lead.name} MC#{lead.mc_number}: {str(e)}",
                 result="error", carrier_mc=lead.mc_number,
             )
@@ -260,7 +253,7 @@ async def workflow_outbound_blast(
     nova_alert_ceo(
         subject=f"Outbound Blast Complete — {len(sent)}/{len(leads)} sent",
         body=(
-            f"SDR: {sdr_name}\n"
+            f"SDR: Megan\n"
             f"Sent ({len(sent)}): {', '.join(sent) or 'none'}\n"
             f"Failed ({len(failed)}): {', '.join(failed) or 'none'}"
         ),
@@ -269,7 +262,7 @@ async def workflow_outbound_blast(
     return {
         "workflow": "outbound_blast",
         "status": "complete",
-        "sdr": sdr_name,
+        "sdr": "Megan",
         "total_leads": len(leads),
         "sent": len(sent),
         "failed": len(failed),
