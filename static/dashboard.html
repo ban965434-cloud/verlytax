@@ -1279,6 +1279,16 @@
   <!-- ── System Test Panel ────────────────────────────────────────────────── -->
   <div class="brain-panel hidden" id="systemPanel">
 
+    <!-- Token (shared with Brain panel via sessionStorage) -->
+    <div class="brain-section">
+      <div class="brain-section-title">🔑 Internal Token <span style="font-size:0.7rem;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">— required for scenarios</span></div>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="systemToken" class="teach-input" style="flex:1" placeholder="Paste your INTERNAL_TOKEN here…" oninput="saveToken(this.value)">
+        <span id="systemTokenStatus" style="font-size:0.75rem;color:var(--muted);align-self:center;white-space:nowrap"></span>
+      </div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-top:4px">Stored in sessionStorage only — same token as Brain panel.</div>
+    </div>
+
     <!-- Health Grid -->
     <div class="brain-section">
       <div class="brain-section-title">🖥 System Health
@@ -1618,6 +1628,13 @@ function selectAgent(key) {
   }
 
   if (isSystem) {
+    const saved = sessionStorage.getItem('verlytax_token');
+    const sysInput = document.getElementById('systemToken');
+    const sysStat  = document.getElementById('systemTokenStatus');
+    if (saved && sysInput) {
+      sysInput.value = saved;
+      if (sysStat) sysStat.textContent = '✓ Saved';
+    }
     loadSystemStatus();
     return;
   }
@@ -1658,8 +1675,15 @@ function getToken() {
 
 function saveToken(val) {
   sessionStorage.setItem('verlytax_token', val.trim());
-  const status = document.getElementById('tokenStatus');
-  if (status) status.textContent = val.trim() ? '✓ Saved' : '';
+  // Sync both token inputs + their status labels
+  ['internalToken', 'systemToken'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.value !== val) el.value = val;
+  });
+  ['tokenStatus', 'systemTokenStatus'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val.trim() ? '✓ Saved' : '';
+  });
 }
 
 function useQuickAction(text) {
