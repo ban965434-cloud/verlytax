@@ -11,7 +11,7 @@ import asyncio
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 
-from app.services import nova_alert_ceo, nova_sms, nova_respond, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, RETELL_AGENT_IDS
+from app.services import nova_alert_ceo, nova_sms, nova_respond, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, store_memory, RETELL_AGENT_IDS
 
 router = APIRouter()
 
@@ -88,11 +88,53 @@ async def twilio_sms_reply(request: Request):
 
     # If from CEO — route to Nova (Delta's operator, not Erin)
     if from_number == CEO_PHONE:
-        reply = await asyncio.to_thread(
-            nova_respond,
-            body,
-            "Inbound SMS from Delta (CEO). Execute commands or answer questions per Nova protocols.",
-        )
+        # Check for ACTIVATE CEO command
+        cmd = body.strip().upper()
+        if cmd == "ACTIVATE CEO":
+            log_automation(
+                agent="ceo_agent",
+                action_type="activation_command",
+                description="Delta sent ACTIVATE CEO — CEO Agent transitioning to active mode.",
+                result="pending_activation",
+            )
+            store_memory(
+                agent="ceo_agent",
+                memory_type="activation_event",
+                content="Delta issued ACTIVATE CEO command. CEO Agent mode transition initiated.",
+                subject="CEO Agent Activation",
+                importance=5,
+                source="delta",
+            )
+            reply = (
+                "CEO Agent activation received.\n\n"
+                "Activation gate:\n"
+                "- Shadow observations logged: see /nova/shadow-log\n"
+                "- Training log: see /nova/training-log\n\n"
+                "To complete activation, confirm readiness in the dashboard "
+                "and toggle the CEO Agent rule in Brain. "
+                "Nova will alert Delta when the gate is cleared."
+            )
+        else:
+            reply = await asyncio.to_thread(
+                nova_respond,
+                body,
+                "Inbound SMS from Delta (CEO). Execute commands or answer questions per Nova protocols.",
+            )
+            # CEO shadow: log every real Delta command as a training observation
+            store_memory(
+                agent="ceo_agent",
+                memory_type="delta_command",
+                content=f"Delta SMS: {body}\nNova response: {reply}",
+                subject=f"Delta command: {body[:60]}",
+                importance=4,
+                source="delta",
+            )
+            log_automation(
+                agent="nova",
+                action_type="ceo_sms_command",
+                description=f"CEO SMS: {body[:80]}",
+                result=reply[:200],
+            )
     else:
         # Carrier SMS — route to Erin; pull Mya memories for context
         carrier_mc = None
