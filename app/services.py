@@ -71,6 +71,16 @@ def nova_day1_carrier_packet(carrier_phone: str, carrier_name: str, mc_number: s
     return nova_sms(carrier_phone, body)
 
 
+# ── Nova Intelligence (Claude AI EA) ─────────────────────────────────────────
+
+def nova_respond(message: str, context: str = "") -> str:
+    """
+    Run an inbound message from Delta through Nova's system prompt via Claude.
+    Used when CEO_PHONE sends an SMS — routes to Nova instead of Erin.
+    """
+    return run_agent("NOVA_EA.md", message, context)
+
+
 # ── Erin (Claude AI Dispatcher) ───────────────────────────────────────────────
 
 def _load_erin_system_prompt() -> str:

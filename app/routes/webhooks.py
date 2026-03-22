@@ -7,10 +7,11 @@ All webhooks are signature-verified.
 import os
 import hmac
 import hashlib
+import asyncio
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 
-from app.services import nova_alert_ceo, nova_sms, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, RETELL_AGENT_IDS
+from app.services import nova_alert_ceo, nova_sms, nova_respond, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, RETELL_AGENT_IDS
 
 router = APIRouter()
 
@@ -85,15 +86,15 @@ async def twilio_sms_reply(request: Request):
     from_number = form.get("From", "")
     body = form.get("Body", "")
 
-    # If from CEO, treat as Delta command
+    # If from CEO — route to Nova (Delta's operator, not Erin)
     if from_number == CEO_PHONE:
-        erin_reply = await asyncio.to_thread(
-            erin_respond,
+        reply = await asyncio.to_thread(
+            nova_respond,
             body,
-            "[Delta (CEO) is speaking directly. Follow escalation rules for CEO commands.]",
+            "Inbound SMS from Delta (CEO). Execute commands or answer questions per Nova protocols.",
         )
     else:
-        # Look up carrier MC by phone, pull Mya memories for context
+        # Carrier SMS — route to Erin; pull Mya memories for context
         carrier_mc = None
         memory_context = ""
         try:
@@ -111,12 +112,12 @@ async def twilio_sms_reply(request: Request):
         except Exception:
             pass  # Memory lookup failure should never block Erin
 
-        erin_reply = await asyncio.to_thread(
+        reply = await asyncio.to_thread(
             erin_respond, body, None, memory_context or None
         )
 
-    # Send Erin's response back via SMS
-    await asyncio.to_thread(nova_sms, from_number, erin_reply[:1600])
+    # Send response back via SMS
+    await asyncio.to_thread(nova_sms, from_number, reply[:1600])
 
     # TwiML response (empty — we already sent via API)
     return JSONResponse(
