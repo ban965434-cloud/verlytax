@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db import get_db, Carrier, CarrierStatus, AutomationLog
-from app.services import verify_internal_token, run_agent, nova_alert_ceo, retell_initiate_call
+from app.services import verify_internal_token, run_agent, nova_sms, nova_alert_ceo, retell_initiate_call
 
 router = APIRouter()
 
@@ -31,6 +31,13 @@ class SdrRequest(BaseModel):
     mc_number: str
     phone: Optional[str] = None
     context: Optional[str] = None       # Lane info, truck type, previous contact, etc.
+
+class NovaSdrRequest(BaseModel):
+    carrier_name: str
+    mc_number: str
+    phone: str                          # Required — Nova actually sends the SMS
+    sdr_agent: str = "megan"           # "megan" | "dan" — whose voice drafts the message
+    context: Optional[str] = None
 
 class VoiceCallRequest(BaseModel):
     agent: str                          # "erin" | "ava" | "zara"
@@ -154,6 +161,8 @@ async def sdr_megan(
         "drafted_sms": reply,
         "note": "Review and send via /webhooks or Nova SMS.",
     }
+
+
 
 
 # ── Voice Call (Retell) ────────────────────────────────────────────────────────

@@ -45,7 +45,8 @@ verlytax/
 │       ├── workflows.py              ← Multi-agent workflow pipelines (/workflows/*)
 │       ├── mya.py                    ← Mya memory engine (/mya/*)
 │       ├── compliance.py             ← Cora compliance monitoring (/compliance/*)
-│       └── support.py                ← Zara customer support tickets (/support/*)
+│       ├── support.py                ← Zara customer support tickets (/support/*)
+│       └── nova.py                   ← Nova test scenarios + CEO shadow log (/nova/*)
 ├── static/
 │   ├── dashboard.html                 ← Operations dashboard (served at /)
 │   ├── about.html                     ← About Verlytax (served at /about)
@@ -58,15 +59,18 @@ verlytax/
     ├── AUTOMATION_SCHEDULE.md         ← Every cron and event trigger
     ├── BUILD_ROADMAP.md               ← Phase 1→3 build + revenue targets
     ├── KENNETH_DISPATCH_MODULE.md     ← Carrier profile template
+    ├── DELTA_STYLE.md                 ← Delta's 8 decision patterns + communication style (CEO Agent reference)
     ├── SOPs/                          ← Standard Operating Procedures (text, versioned)
     │   ├── SOP_INDEX.md               ← SOP master index
     │   ├── SOP_001_CARRIER_ONBOARDING.md
     │   ├── SOP_002_LOAD_BOOKING.md
     │   └── SOP_003_DISPUTE_RESOLUTION.md
     │   ├── SOP_004_COMPLIANCE_MONITORING.md
-    │   └── SOP_005_CUSTOMER_SUPPORT.md
+    │   ├── SOP_005_CUSTOMER_SUPPORT.md
+    │   └── SOP_TRAINING_LOG.md        ← Auto-generated: every Nova test scenario + CEO shadow learning (all agents can read)
     └── agents/
-        ├── DANIEL_EA.md               ← Delta's EA system prompt
+        ├── NOVA_EA.md                 ← Nova system prompt v2 (Delta's EA)
+        ├── CLAUDE_CEO_SHADOW.md       ← CEO Agent shadow mode prompt (Delta-provided, verbatim)
         ├── RECEPTIONIST.md            ← Inbound qualifier (Ava)
         ├── SDR_MEGAN.md               ← Outbound SDR (cold outreach)
         ├── SDR_DAN.md                 ← Outbound SDR (B-voice)
@@ -82,13 +86,13 @@ verlytax/
 | Agent | Role | Status | Location |
 |---|---|---|---|
 | **Erin** | AI Dispatcher — load booking, carrier comms, billing, proactive SMS | Active | `services.erin_respond()` + `Erin_System_Prompt_v4.txt` |
-| **Nova** | Executive Assistant — Delta SMS alerts, Day 1 packets, fee alerts | Active | `services.nova_sms()`, `services.nova_alert_ceo()` |
+| **Nova** | Executive Assistant — Delta SMS alerts, briefs, command execution (STATUS/BRIEF/HALT/RESUME/HALT ALL), escalation routing | Active | `services.nova_respond()` + `VERLYTAX_AIOS/agents/NOVA_EA.md` |
 | **Mya** | Intelligence & memory engine — learns from every operation, powers all automations | Active | `app/main.py` (9 scheduler jobs) + `VERLYTAX_AIOS/agents/MYA.md` |
 | **Ava** | Inbound qualifier — screens new carrier inquiries | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/RECEPTIONIST.md` |
 | **Megan SDR** | Outbound SDR — carrier acquisition, professional woman voice, single consolidated SDR | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/SDR_MEGAN.md` |
 | **Cora** | Compliance Officer — monitors authority, COI, insurance, clearinghouse, NDS weekly | Active | `app/routes/compliance.py` + `VERLYTAX_AIOS/agents/CORA.md` |
 | **Zara** | Customer Support Specialist — tickets, billing questions, load issues, account inquiries | Active | `app/routes/support.py` + `VERLYTAX_AIOS/agents/ZARA.md` |
-| **CEO Agent** | Shadow mode — learning Delta's decisions | Shadow Only | Not yet built |
+| **CEO Agent** | Shadow mode — learning Delta's decisions, patterns, and escalation logic. Activates via SMS `ACTIVATE CEO`. | Shadow Only | `VERLYTAX_AIOS/agents/CLAUDE_CEO_SHADOW.md` + `AgentMemory` (agent="ceo_agent") |
 
 ---
 
