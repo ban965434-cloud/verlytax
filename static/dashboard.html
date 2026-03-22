@@ -1184,6 +1184,45 @@
       <div id="coraAuditLog" class="brain-log"><div class="rules-loading">Loading audits…</div></div>
     </div>
 
+  <!-- ── Nova Command Center panel ───────────────────────────────────── -->
+  <div class="brain-panel hidden" id="novaPanel">
+
+    <div class="brain-section">
+      <div class="brain-section-title">⚡ Nova Command Center
+        <span style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);font-weight:400;text-transform:none;letter-spacing:0">Test scenarios without Twilio. Every run is logged to CEO shadow + SOP training log.</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="wf-btn" onclick="runNovaScenario('STATUS','STATUS command')">📊 STATUS</button>
+        <button class="wf-btn" onclick="runNovaScenario('BRIEF','BRIEF command')">📋 BRIEF</button>
+        <button class="wf-btn wf-btn-alt" onclick="runNovaScenario('HALT ALL','HALT ALL flow')">🔴 HALT ALL</button>
+        <button class="wf-btn" style="background:var(--green)" onclick="runNovaScenario('RESUME','RESUME command')">▶ RESUME</button>
+      </div>
+    </div>
+
+    <div class="brain-section">
+      <div class="brain-section-title">💬 Free-Text Command</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="text" id="novaTestInput" class="teach-input" style="flex:1" placeholder="Type any message to Nova… (e.g. HALT MC#123456, BRIEF, STATUS)">
+        <button class="wf-btn" onclick="sendNovaFreeText()">Send</button>
+      </div>
+    </div>
+
+    <div class="brain-section">
+      <div class="brain-section-title">📨 Nova Response <button class="log-refresh-btn" id="novaResponseClear" onclick="clearNovaResponse()" style="display:none">✕ Clear</button></div>
+      <div id="novaResponseBox" style="background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:16px;min-height:80px;font-size:0.82rem;line-height:1.6;color:var(--text);white-space:pre-wrap;display:none"></div>
+      <div id="novaResponsePlaceholder" style="background:var(--glass);border:1px dashed var(--border);border-radius:10px;padding:16px;min-height:80px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.8rem">
+        Send a command above to see Nova's response here.
+      </div>
+    </div>
+
+    <div class="brain-section">
+      <div class="brain-section-title">🧠 CEO Shadow Log <button class="log-refresh-btn" onclick="loadShadowLog()">↻ Refresh</button></div>
+      <div id="shadowLogStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"></div>
+      <div id="shadowLogList" class="brain-log"><div class="rules-loading">Loading shadow observations…</div></div>
+    </div>
+
+  </div>
+
   </div>
 
   </div>
@@ -1214,19 +1253,15 @@ const AGENTS = {
   nova: {
     name: 'Nova',
     role: 'CEO Executive Assistant',
-    detail: 'Executive Assistant — Delta SMS alerts, Day 1 carrier packets, fee alerts',
+    detail: 'Executive Assistant — alerts, briefs, SMS commands, CEO shadow training',
     avatar: 'N',
     color: 'linear-gradient(135deg,#f59e0b 0%,#d97706 100%)',
     badge: 'live',
-    desc: 'Nova handles every outbound alert, carrier packet, and CEO notification. She is your direct line to everything that matters.',
-    actions: [
-      'What alerts has Nova sent today?',
-      'Send a test alert to Delta',
-      'Show me the Day 1 carrier packet template',
-      'What triggers a Nova alert?',
-    ],
+    desc: 'Nova handles every CEO alert, brief, and SMS command. Test scenarios here — every run is logged to CEO shadow learning and the SOP training log.',
+    actions: [],
     canChat: false,
     showStats: false,
+    customPanel: 'novaPanel',
   },
   receptionist: {
     name: 'Ava',
@@ -1406,8 +1441,10 @@ function selectAgent(key) {
   // Custom panels
   const isBrain = (key === 'brain');
   const isCora = (key === 'cora');
+  const isNova = (key === 'nova');
   document.getElementById('brainPanel').classList.toggle('hidden', !isBrain);
   document.getElementById('coraPanel').classList.toggle('hidden', !isCora);
+  document.getElementById('novaPanel').classList.toggle('hidden', !isNova);
   document.getElementById('welcomePanel').classList.add('hidden');
   document.getElementById('chatPanel').classList.add('hidden');
 
@@ -1430,6 +1467,11 @@ function selectAgent(key) {
     loadCoraStats();
     loadCoraAtRisk();
     loadCoraAudits();
+    return;
+  }
+
+  if (isNova) {
+    loadShadowLog();
     return;
   }
 
@@ -2142,6 +2184,113 @@ function stopVoice() {
   // Auto-send if there's text and the agent can chat
   if (input.value.trim() && AGENTS[currentAgent]?.canChat) {
     sendMessage();
+  }
+}
+
+// ── Nova Command Center ───────────────────────────────────────────────────────
+
+async function runNovaScenario(message, label) {
+  await _novaTest(message, label);
+}
+
+async function sendNovaFreeText() {
+  const input = document.getElementById('novaTestInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  await _novaTest(msg, 'free_text');
+}
+
+async function _novaTest(message, scenario) {
+  const token = getToken();
+  if (!token) {
+    alert('Enter your Internal Token in the Brain panel first.');
+    return;
+  }
+  const box = document.getElementById('novaResponseBox');
+  const placeholder = document.getElementById('novaResponsePlaceholder');
+  const clearBtn = document.getElementById('novaResponseClear');
+
+  box.style.display = 'none';
+  placeholder.style.display = 'flex';
+  placeholder.textContent = '⏳ Nova is responding…';
+
+  try {
+    const res = await fetch('/nova/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-token': token },
+      body: JSON.stringify({ message, scenario }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Error');
+
+    box.textContent = data.response;
+    box.style.display = 'block';
+    placeholder.style.display = 'none';
+    clearBtn.style.display = 'inline-block';
+
+    // Refresh shadow log to show new entry
+    loadShadowLog();
+  } catch (e) {
+    placeholder.style.display = 'flex';
+    placeholder.textContent = '⚠ ' + e.message;
+  }
+}
+
+function clearNovaResponse() {
+  document.getElementById('novaResponseBox').style.display = 'none';
+  document.getElementById('novaResponseBox').textContent = '';
+  document.getElementById('novaResponsePlaceholder').style.display = 'flex';
+  document.getElementById('novaResponsePlaceholder').textContent = 'Send a command above to see Nova\'s response here.';
+  document.getElementById('novaResponseClear').style.display = 'none';
+}
+
+async function loadShadowLog() {
+  const token = getToken();
+  const listEl = document.getElementById('shadowLogList');
+  const statsEl = document.getElementById('shadowLogStats');
+  if (!listEl) return;
+
+  listEl.innerHTML = '<div class="rules-loading">Loading…</div>';
+
+  if (!token) {
+    listEl.innerHTML = '<div class="rules-loading">Enter Internal Token in Brain panel to view.</div>';
+    return;
+  }
+
+  try {
+    const res = await fetch('/nova/shadow-log?limit=15', {
+      headers: { 'x-internal-token': token }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Error');
+
+    // Stats strip
+    statsEl.innerHTML = `
+      <div class="stat-card-mini"><span class="scm-val">${data.count}</span><span class="scm-label">Observations</span></div>
+      <div class="stat-card-mini"><span class="scm-val" style="color:var(--accent)">Shadow</span><span class="scm-label">CEO Agent Mode</span></div>
+    `;
+
+    if (!data.observations.length) {
+      listEl.innerHTML = '<div class="rules-loading">No observations yet. Run a test scenario above.</div>';
+      return;
+    }
+
+    listEl.innerHTML = data.observations.map(obs => {
+      const ts = obs.created_at ? new Date(obs.created_at).toLocaleString() : '';
+      const preview = obs.content.length > 180 ? obs.content.slice(0, 180) + '…' : obs.content;
+      return `
+        <div class="log-entry">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:0.75rem;font-weight:600;color:var(--accent)">${obs.subject || obs.memory_type}</span>
+            <span style="font-size:0.65rem;color:var(--muted)">${ts}</span>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-secondary);white-space:pre-wrap">${preview}</div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = `<div class="rules-loading">Error: ${e.message}</div>`;
   }
 }
 
