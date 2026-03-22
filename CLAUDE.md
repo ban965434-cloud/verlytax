@@ -41,7 +41,7 @@ verlytax/
 │       ├── webhooks.py               ← Stripe, Twilio SMS, Retell, internal crons
 │       ├── carriers.py               ← Carrier list, bulk import, CSV export
 │       ├── brain.py                  ← SOP CRUD, automation log, rule toggles (/brain/*)
-│       ├── agents.py                 ← Receptionist, Megan SDR, Dan SDR (/agents/*)
+│       ├── agents.py                 ← Receptionist, Megan SDR (/agents/*)
 │       ├── workflows.py              ← Multi-agent workflow pipelines (/workflows/*)
 │       ├── mya.py                    ← Mya memory engine (/mya/*)
 │       ├── compliance.py             ← Cora compliance monitoring (/compliance/*)
@@ -85,8 +85,7 @@ verlytax/
 | **Nova** | Executive Assistant — Delta SMS alerts, Day 1 packets, fee alerts | Active | `services.nova_sms()`, `services.nova_alert_ceo()` |
 | **Mya** | Intelligence & memory engine — learns from every operation, powers all automations | Active | `app/main.py` (9 scheduler jobs) + `VERLYTAX_AIOS/agents/MYA.md` |
 | **Ava** | Inbound qualifier — screens new carrier inquiries | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/RECEPTIONIST.md` |
-| **Megan SDR** | Outbound SDR — carrier acquisition cold outreach | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/SDR_MEGAN.md` |
-| **Dan SDR** | Outbound SDR — carrier acquisition (B-voice) | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/SDR_DAN.md` |
+| **Megan SDR** | Outbound SDR — carrier acquisition, professional woman voice, single consolidated SDR | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/SDR_MEGAN.md` |
 | **Cora** | Compliance Officer — monitors authority, COI, insurance, clearinghouse, NDS weekly | Active | `app/routes/compliance.py` + `VERLYTAX_AIOS/agents/CORA.md` |
 | **Zara** | Customer Support Specialist — tickets, billing questions, load issues, account inquiries | Active | `app/routes/support.py` + `VERLYTAX_AIOS/agents/ZARA.md` |
 | **CEO Agent** | Shadow mode — learning Delta's decisions | Shadow Only | Not yet built |
@@ -189,7 +188,6 @@ Six SQLAlchemy async models, all stored in `verlytax.db`:
 ### Agents (`/agents/*`)
 - `POST /agents/receptionist` — run inbound lead through Receptionist agent (requires INTERNAL_TOKEN)
 - `POST /agents/sdr/megan` — Megan SDR drafts outbound carrier acquisition SMS (requires INTERNAL_TOKEN)
-- `POST /agents/sdr/dan` — Dan SDR drafts outbound SMS B-voice variant (requires INTERNAL_TOKEN)
 - `POST /agents/voice-call` — initiate a Retell outbound call for any voice agent: Erin, Ava, or Zara (requires INTERNAL_TOKEN)
 
 ### Erin Chat (`/erin/*`)
@@ -238,6 +236,7 @@ Nine crons run on startup via APScheduler. All governed by `AutomationRule` togg
 | `mya_learn()` | Daily 6:00 AM UTC | `mya_learn` | Synthesizes load/dispute data into AgentMemory for learning |
 | `cora_compliance_scan()` | Mondays 7:30 AM UTC | `cora_compliance_scan` | Full compliance audit of all active + trial carriers; suspends RED violations |
 | `support_ticket_sweep()` | Daily 9:30 AM UTC | `support_ticket_sweep` | Zara follow-up SMS on tickets >24h; auto-escalates tickets >48h to Delta |
+| `megan_sdr_outreach()` | Daily 11:00 AM UTC | `megan_sdr_outreach` | Megan auto-contacts stale leads (14+ days, no conversion); up to 20 per run via Nova SMS |
 
 **Note:** Friday fee charge was changed from Monday in the original design. Do not revert without Delta's approval.
 

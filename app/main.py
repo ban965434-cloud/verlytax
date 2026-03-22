@@ -732,6 +732,80 @@ async def support_ticket_sweep():
                 )
 
 
+async def megan_sdr_outreach():
+    """
+    Daily at 11:00 AM UTC — Megan auto-contacts stale leads (no activity in 14+ days).
+    Pulls up to 20 leads per run, drafts personalized SMS via Claude, sends via Nova.
+    Rule key: megan_sdr_outreach
+    """
+    if not await _rule_enabled("megan_sdr_outreach"):
+        return
+
+    from datetime import timedelta
+
+    now = datetime.utcnow()
+    cutoff = now - timedelta(days=14)
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Carrier).where(
+                Carrier.status == CarrierStatus.LEAD,
+                Carrier.phone.isnot(None),
+                Carrier.is_blocked == False,
+                Carrier.created_at < cutoff,
+            ).limit(20)
+        )
+        leads = result.scalars().all()
+
+    if not leads:
+        log_automation(
+            agent="megan_sdr", action_type="daily_sdr_outreach",
+            description="Daily SDR run — no stale leads found", result="skipped",
+        )
+        return
+
+    sent, failed = [], []
+
+    for lead in leads:
+        try:
+            context = (
+                f"Carrier: {lead.name} | MC#{lead.mc_number}\n"
+                f"Phone: {lead.phone}\n"
+                f"Lead since: {lead.created_at.strftime('%B %d, %Y')}\n"
+                f"Days as lead: {(now - lead.created_at).days}\n"
+                f"Notes: {lead.notes or 'none'}"
+            )
+            prompt = (
+                f"Draft a short, professional outbound SMS to {lead.name} (MC#{lead.mc_number}) "
+                f"who has been a lead for {(now - lead.created_at).days} days with no conversion. "
+                f"Re-engage them — be specific, warm, and close with one clear next step."
+            )
+            draft = await asyncio.to_thread(run_agent, "SDR_MEGAN.md", prompt, context)
+            nova_sms(lead.phone, draft)
+            sent.append(f"{lead.name} MC#{lead.mc_number}")
+            log_automation(
+                agent="megan_sdr", action_type="daily_sdr_outreach",
+                description=f"Outreach SMS sent to {lead.name} MC#{lead.mc_number}",
+                result="sent", carrier_mc=lead.mc_number,
+            )
+        except Exception as e:
+            failed.append(f"{lead.name} MC#{lead.mc_number}")
+            log_automation(
+                agent="megan_sdr", action_type="daily_sdr_outreach",
+                description=f"Outreach failed for {lead.name} MC#{lead.mc_number}: {str(e)}",
+                result="error", carrier_mc=lead.mc_number,
+            )
+
+    nova_alert_ceo(
+        subject=f"Megan SDR Daily Run — {len(sent)}/{len(leads)} sent",
+        body=(
+            f"Daily outreach complete.\n"
+            f"Sent ({len(sent)}): {', '.join(sent) or 'none'}\n"
+            f"Failed ({len(failed)}): {', '.join(failed) or 'none'}"
+        ),
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -796,6 +870,12 @@ async def lifespan(app: FastAPI):
         support_ticket_sweep,
         CronTrigger(hour=9, minute=30, timezone="UTC"),
         id="support_ticket_sweep",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        megan_sdr_outreach,
+        CronTrigger(hour=11, minute=0, timezone="UTC"),
+        id="megan_sdr_outreach",
         replace_existing=True,
     )
     scheduler.start()
