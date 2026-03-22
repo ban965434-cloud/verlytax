@@ -982,6 +982,18 @@
       <div class="agent-status shadow"></div>
     </div>
 
+    <!-- SYSTEM -->
+    <div class="section-label">System <span class="count">1</span></div>
+
+    <div class="agent-item" data-agent="system" onclick="selectAgent('system')">
+      <div class="agent-avatar" style="background: linear-gradient(135deg,#374151 0%,#1f2937 100%);font-size:0.9rem">⚙</div>
+      <div class="agent-info">
+        <div class="agent-name">System</div>
+        <div class="agent-role">Health · Tests · Roadmap</div>
+      </div>
+      <div class="agent-status live"></div>
+    </div>
+
   </div>
 
   <div class="sidebar-footer">CEO: Delta &nbsp;·&nbsp; "You drive. We handle the rest."</div>
@@ -1264,6 +1276,102 @@
 
   </div>
 
+  <!-- ── System Test Panel ────────────────────────────────────────────────── -->
+  <div class="brain-panel hidden" id="systemPanel">
+
+    <!-- Health Grid -->
+    <div class="brain-section">
+      <div class="brain-section-title">🖥 System Health
+        <button class="log-refresh-btn" onclick="loadSystemStatus()">↻ Refresh</button>
+        <span id="systemOverallBadge" style="margin-left:8px;font-size:0.7rem;padding:2px 8px;border-radius:20px;font-weight:700;display:none"></span>
+        <span style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);font-weight:400;text-transform:none;letter-spacing:0">Live check — DB, API keys, scheduler. Enter token for full detail.</span>
+      </div>
+      <div id="systemHealthGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:10px">
+        <div style="color:var(--muted);font-size:0.8rem;grid-column:1/-1">Click Refresh to run health check.</div>
+      </div>
+    </div>
+
+    <!-- DB Counts -->
+    <div class="brain-section">
+      <div class="brain-section-title">🗄 Database</div>
+      <div id="systemDbGrid" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <div style="color:var(--muted);font-size:0.8rem">Run health check above.</div>
+      </div>
+    </div>
+
+    <!-- API Keys Grid -->
+    <div class="brain-section">
+      <div class="brain-section-title">🔑 API Keys / Env Vars
+        <span style="margin-left:auto;font-size:0.7rem;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">Presence only — values never shown</span>
+      </div>
+      <div id="systemEnvGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin-top:10px">
+        <div style="color:var(--muted);font-size:0.8rem;grid-column:1/-1">Run health check above.</div>
+      </div>
+    </div>
+
+    <!-- Full Scenario Suite -->
+    <div class="brain-section">
+      <div class="brain-section-title">🧪 Full System Scenarios
+        <span style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);font-weight:400;text-transform:none;letter-spacing:0">Multi-agent end-to-end tests — requires Internal Token</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+        <button class="wf-btn" style="padding:12px;text-align:left;display:flex;flex-direction:column;gap:3px" onclick="runSystemScenario('iron_rules_sweep')">
+          <span style="font-weight:700">⚖ Iron Rules Sweep</span>
+          <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:400">Tests all 4 key Iron Rule blocks + a passing load</span>
+        </button>
+        <button class="wf-btn" style="padding:12px;text-align:left;display:flex;flex-direction:column;gap:3px" onclick="runSystemScenario('dispatch_flow')">
+          <span style="font-weight:700">📦 Dispatch Flow</span>
+          <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:400">STATUS → book load → BOL guard → fee calc</span>
+        </button>
+        <button class="wf-btn" style="padding:12px;text-align:left;display:flex;flex-direction:column;gap:3px" onclick="runSystemScenario('compliance_sweep')">
+          <span style="font-weight:700">🛡 Compliance Sweep</span>
+          <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:400">Safety rating, authority age, clearinghouse, COI</span>
+        </button>
+        <button class="wf-btn" style="padding:12px;text-align:left;display:flex;flex-direction:column;gap:3px" onclick="runSystemScenario('nova_command_sweep')">
+          <span style="font-weight:700">⚡ Nova Command Sweep</span>
+          <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:400">STATUS · BRIEF · REPORT · ACTIVATE CEO</span>
+        </button>
+        <button class="wf-btn wf-btn-alt" style="padding:12px;text-align:left;display:flex;flex-direction:column;gap:3px;grid-column:1/-1" onclick="runSystemScenario('escalation_flow')">
+          <span style="font-weight:700">🚨 Escalation Flow</span>
+          <span style="font-size:0.68rem;color:var(--text-secondary);font-weight:400">$600 dispute · churn risk · Iron Rule pushback · Delta escalation</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Scenario Results -->
+    <div class="brain-section">
+      <div class="brain-section-title">📋 Scenario Results
+        <span id="scenarioRunning" style="display:none;margin-left:8px;font-size:0.72rem;color:var(--accent)">⏳ Running…</span>
+        <button class="log-refresh-btn" id="scenarioClear" onclick="clearScenarioResults()" style="display:none">✕ Clear</button>
+      </div>
+      <div id="scenarioResults">
+        <div style="color:var(--muted);font-size:0.8rem;padding:16px;text-align:center;border:1px dashed var(--border);border-radius:10px">
+          Run a scenario above to see step-by-step results here.
+        </div>
+      </div>
+    </div>
+
+    <!-- Build Plan / Roadmap Status -->
+    <div class="brain-section">
+      <div class="brain-section-title">🗺 Build Plan Status
+        <span style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);font-weight:400;text-transform:none;letter-spacing:0">Live roadmap — what's built vs. what's next</span>
+      </div>
+      <div id="buildPlanStats" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
+      <div id="buildPlanList" style="display:flex;flex-direction:column;gap:4px">
+        <div style="color:var(--muted);font-size:0.8rem">Run health check to load build plan.</div>
+      </div>
+    </div>
+
+    <!-- Scheduler Jobs -->
+    <div class="brain-section">
+      <div class="brain-section-title">⏰ Scheduled Jobs</div>
+      <div id="schedulerJobList" style="display:flex;flex-direction:column;gap:4px;margin-top:8px">
+        <div style="color:var(--muted);font-size:0.8rem">Run health check to load job list.</div>
+      </div>
+    </div>
+
+  </div>
+
 </div>
 
 <script>
@@ -1429,6 +1537,19 @@ const AGENTS = {
     canChat: false,
     showStats: true,
   },
+  system: {
+    name: 'System',
+    role: 'Health · Scenarios · Roadmap',
+    detail: 'System Test & Status — health check, full scenario suite, build plan',
+    avatar: '⚙',
+    color: 'linear-gradient(135deg,#374151 0%,#1f2937 100%)',
+    badge: 'live',
+    desc: 'Full system health check, multi-agent end-to-end scenario tests, and live build plan status.',
+    actions: [],
+    canChat: false,
+    showStats: false,
+    customPanel: 'systemPanel',
+  },
 };
 
 let currentAgent = 'erin';
@@ -1459,12 +1580,14 @@ function selectAgent(key) {
   // Stats strip — always visible
 
   // Custom panels
-  const isBrain = (key === 'brain');
-  const isCora = (key === 'cora');
-  const isNova = (key === 'nova');
+  const isBrain  = (key === 'brain');
+  const isCora   = (key === 'cora');
+  const isNova   = (key === 'nova');
+  const isSystem = (key === 'system');
   document.getElementById('brainPanel').classList.toggle('hidden', !isBrain);
   document.getElementById('coraPanel').classList.toggle('hidden', !isCora);
   document.getElementById('novaPanel').classList.toggle('hidden', !isNova);
+  document.getElementById('systemPanel').classList.toggle('hidden', !isSystem);
   document.getElementById('welcomePanel').classList.add('hidden');
   document.getElementById('chatPanel').classList.add('hidden');
 
@@ -1472,7 +1595,6 @@ function selectAgent(key) {
     loadBrainRules();
     loadBrainLog();
     loadMyaMemory();
-    // Restore saved token to input
     const saved = sessionStorage.getItem('verlytax_token');
     const tokenInput = document.getElementById('internalToken');
     const tokenStatus = document.getElementById('tokenStatus');
@@ -1492,6 +1614,11 @@ function selectAgent(key) {
 
   if (isNova) {
     loadShadowLog();
+    return;
+  }
+
+  if (isSystem) {
+    loadSystemStatus();
     return;
   }
 
@@ -2375,6 +2502,176 @@ async function loadShadowLog() {
   } catch (e) {
     listEl.innerHTML = `<div class="rules-loading">Error: ${e.message}</div>`;
   }
+}
+
+// ── System Test Panel ─────────────────────────────────────────────────────────
+
+async function loadSystemStatus() {
+  const token = getToken();
+  const headers = token ? { 'x-internal-token': token } : {};
+
+  // Reset grids
+  document.getElementById('systemHealthGrid').innerHTML = '<div style="color:var(--muted);font-size:0.8rem;grid-column:1/-1">⏳ Checking…</div>';
+  document.getElementById('systemDbGrid').innerHTML = '<div style="color:var(--muted);font-size:0.8rem">⏳ Checking…</div>';
+  document.getElementById('systemEnvGrid').innerHTML = '<div style="color:var(--muted);font-size:0.8rem;grid-column:1/-1">⏳ Checking…</div>';
+  document.getElementById('buildPlanList').innerHTML = '<div style="color:var(--muted);font-size:0.8rem">⏳ Loading…</div>';
+  document.getElementById('schedulerJobList').innerHTML = '<div style="color:var(--muted);font-size:0.8rem">⏳ Loading…</div>';
+
+  try {
+    const res = await fetch('/system/status', { headers });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || 'Error');
+
+    // Overall badge
+    const badge = document.getElementById('systemOverallBadge');
+    badge.style.display = 'inline-block';
+    badge.textContent = d.overall.toUpperCase();
+    badge.style.background = d.overall === 'ok' ? 'var(--green)' : d.overall === 'degraded' ? 'var(--yellow)' : 'var(--red)';
+    badge.style.color = '#0c0c16';
+
+    // Health summary cards
+    const configured = d.env.configured;
+    const total_env = d.env.total;
+    const missing = d.env.missing;
+    document.getElementById('systemHealthGrid').innerHTML = `
+      <div class="stat-card-mini" style="background:${d.db.ok ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)'};border:1px solid ${d.db.ok ? 'var(--green)' : 'var(--red)'};border-radius:10px;padding:10px 14px">
+        <span class="scm-val" style="color:${d.db.ok ? 'var(--green)' : 'var(--red)'}">${d.db.ok ? '✓' : '✗'}</span>
+        <span class="scm-label">Database</span>
+      </div>
+      <div class="stat-card-mini" style="background:${missing === 0 ? 'rgba(16,185,129,0.08)' : missing <= 3 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'};border:1px solid ${missing === 0 ? 'var(--green)' : missing <= 3 ? 'var(--yellow)' : 'var(--red)'};border-radius:10px;padding:10px 14px">
+        <span class="scm-val" style="color:${missing === 0 ? 'var(--green)' : missing <= 3 ? 'var(--yellow)' : 'var(--red)'}">${configured}/${total_env}</span>
+        <span class="scm-label">API Keys Set</span>
+      </div>
+      <div class="stat-card-mini" style="background:rgba(99,102,241,0.08);border:1px solid var(--accent);border-radius:10px;padding:10px 14px">
+        <span class="scm-val" style="color:var(--accent)">${d.build_plan.built}/${d.build_plan.total}</span>
+        <span class="scm-label">Features Built</span>
+      </div>
+      <div class="stat-card-mini" style="background:rgba(16,185,129,0.08);border:1px solid var(--green);border-radius:10px;padding:10px 14px">
+        <span class="scm-val" style="color:var(--green)">${d.scheduler.total_jobs}</span>
+        <span class="scm-label">Cron Jobs</span>
+      </div>
+    `;
+
+    // DB counts
+    document.getElementById('systemDbGrid').innerHTML = Object.entries(d.db.counts)
+      .map(([k, v]) => `
+        <div class="stat-card-mini" style="background:var(--glass);border:1px solid var(--border);border-radius:8px;padding:8px 12px">
+          <span class="scm-val">${v}</span>
+          <span class="scm-label">${k}</span>
+        </div>
+      `).join('');
+
+    // Env vars grid
+    document.getElementById('systemEnvGrid').innerHTML = d.env.items.map(e => `
+      <div style="display:flex;align-items:center;gap:8px;background:var(--glass);border:1px solid ${e.set ? 'var(--border)' : 'rgba(239,68,68,0.3)'};border-radius:8px;padding:7px 10px">
+        <span style="font-size:0.8rem;color:${e.set ? 'var(--green)' : 'var(--red)'};flex-shrink:0">${e.set ? '✓' : '✗'}</span>
+        <div style="min-width:0">
+          <div style="font-size:0.72rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.label}</div>
+          <div style="font-size:0.62rem;color:var(--muted);font-family:monospace">${e.key}</div>
+        </div>
+      </div>
+    `).join('');
+
+    // Build plan
+    const bp = d.build_plan;
+    document.getElementById('buildPlanStats').innerHTML = `
+      <div class="stat-card-mini"><span class="scm-val" style="color:var(--green)">${bp.built}</span><span class="scm-label">Built</span></div>
+      <div class="stat-card-mini"><span class="scm-val" style="color:var(--yellow)">${bp.remaining}</span><span class="scm-label">Remaining</span></div>
+      <div class="stat-card-mini"><span class="scm-val">${bp.total}</span><span class="scm-label">Total Items</span></div>
+    `;
+    document.getElementById('buildPlanList').innerHTML = bp.items.map(item => `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:8px;background:${item.built ? 'transparent' : 'rgba(245,158,11,0.04)'};border:1px solid ${item.built ? 'transparent' : 'rgba(245,158,11,0.2)'}">
+        <span style="font-size:0.85rem;flex-shrink:0">${item.built ? '✅' : '⏳'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.77rem;font-weight:${item.built ? '400' : '600'};color:${item.built ? 'var(--text-secondary)' : 'var(--text)'}">${item.label}</div>
+          <div style="font-size:0.65rem;color:var(--muted);font-family:monospace">${item.note}</div>
+        </div>
+      </div>
+    `).join('');
+
+    // Scheduler jobs
+    document.getElementById('schedulerJobList').innerHTML = d.scheduler.jobs.map(j => `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:8px;background:var(--glass)">
+        <span style="font-size:0.7rem;color:var(--green)">●</span>
+        <div style="flex:1">
+          <div style="font-size:0.77rem;font-weight:600;color:var(--text)">${j.name}</div>
+          <div style="font-size:0.65rem;color:var(--muted)">${j.schedule} · rule: ${j.rule_key}</div>
+        </div>
+      </div>
+    `).join('');
+
+  } catch (e) {
+    document.getElementById('systemHealthGrid').innerHTML = `<div style="color:var(--red);grid-column:1/-1">⚠ ${e.message}</div>`;
+  }
+}
+
+async function runSystemScenario(scenario) {
+  const token = getToken();
+  if (!token) {
+    alert('Enter your Internal Token in the Brain panel first.');
+    return;
+  }
+
+  const runningEl = document.getElementById('scenarioRunning');
+  const clearBtn = document.getElementById('scenarioClear');
+  const resultsEl = document.getElementById('scenarioResults');
+
+  runningEl.style.display = 'inline';
+  clearBtn.style.display = 'none';
+  resultsEl.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:16px;text-align:center">⏳ Running scenario — this may take 30–60 seconds…</div>';
+
+  try {
+    const res = await fetch('/system/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-token': token },
+      body: JSON.stringify({ scenario, dry_run: true }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || 'Error');
+
+    const passColor = 'var(--green)';
+    const failColor = 'var(--red)';
+    const summary = `
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <div class="stat-card-mini" style="background:rgba(16,185,129,0.08);border:1px solid var(--green);border-radius:8px;padding:8px 14px">
+          <span class="scm-val" style="color:var(--green)">${d.steps_passed}</span><span class="scm-label">Passed</span>
+        </div>
+        <div class="stat-card-mini" style="background:${d.steps_failed > 0 ? 'rgba(239,68,68,0.08)' : 'var(--glass)'};border:1px solid ${d.steps_failed > 0 ? 'var(--red)' : 'var(--border)'};border-radius:8px;padding:8px 14px">
+          <span class="scm-val" style="color:${d.steps_failed > 0 ? failColor : 'var(--muted)'}">${d.steps_failed}</span><span class="scm-label">Failed</span>
+        </div>
+        <div class="stat-card-mini" style="background:var(--glass);border:1px solid var(--border);border-radius:8px;padding:8px 14px">
+          <span class="scm-val">${d.steps_total}</span><span class="scm-label">Total Steps</span>
+        </div>
+      </div>
+    `;
+
+    const steps = d.results.map((r, i) => `
+      <div style="border:1px solid ${r.status === 'ok' ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.3)'};border-radius:10px;padding:12px;margin-bottom:6px;background:${r.status === 'ok' ? 'rgba(16,185,129,0.03)' : 'rgba(239,68,68,0.04)'}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:0.8rem">${r.status === 'ok' ? '✅' : '❌'}</span>
+          <span style="font-size:0.77rem;font-weight:700;color:var(--text)">Step ${i+1}: ${r.step}</span>
+          <span style="margin-left:auto;font-size:0.65rem;color:var(--muted);font-family:monospace">[${r.agent}]</span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-bottom:6px;font-style:italic">"${r.input}"</div>
+        ${r.response ? `<div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.5;white-space:pre-wrap;border-top:1px solid var(--border);padding-top:6px">${r.response}</div>` : ''}
+        ${r.error ? `<div style="font-size:0.75rem;color:var(--red)">${r.error}</div>` : ''}
+      </div>
+    `).join('');
+
+    resultsEl.innerHTML = summary + steps;
+    clearBtn.style.display = 'inline-block';
+  } catch (e) {
+    resultsEl.innerHTML = `<div style="color:var(--red);padding:12px">⚠ ${e.message}</div>`;
+  } finally {
+    runningEl.style.display = 'none';
+  }
+}
+
+function clearScenarioResults() {
+  document.getElementById('scenarioResults').innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:16px;text-align:center;border:1px dashed var(--border);border-radius:10px">Run a scenario above to see step-by-step results here.</div>';
+  document.getElementById('scenarioClear').style.display = 'none';
+  const badge = document.getElementById('systemOverallBadge');
+  if (badge) badge.style.display = 'none';
 }
 
 // Init
