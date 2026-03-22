@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db import get_db, Carrier, CarrierStatus, AutomationLog
-from app.services import verify_internal_token, run_agent, nova_alert_ceo, retell_initiate_call
+from app.services import verify_internal_token, run_agent, nova_sms, nova_alert_ceo, retell_initiate_call
 
 router = APIRouter()
 
@@ -31,6 +31,13 @@ class SdrRequest(BaseModel):
     mc_number: str
     phone: Optional[str] = None
     context: Optional[str] = None       # Lane info, truck type, previous contact, etc.
+
+class NovaSdrRequest(BaseModel):
+    carrier_name: str
+    mc_number: str
+    phone: str                          # Required — Nova actually sends the SMS
+    sdr_agent: str = "megan"           # "megan" | "dan" — whose voice drafts the message
+    context: Optional[str] = None
 
 class VoiceCallRequest(BaseModel):
     agent: str                          # "erin" | "ava" | "zara"
@@ -153,6 +160,106 @@ async def sdr_megan(
         "mc_number": data.mc_number,
         "drafted_sms": reply,
         "note": "Review and send via /webhooks or Nova SMS.",
+    }
+
+
+# ── Dan SDR ───────────────────────────────────────────────────────────────────
+
+@router.post("/sdr/dan")
+async def sdr_dan(
+    data: SdrRequest,
+    x_internal_token: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Dan SDR drafts an outbound SMS (B-voice variant — different tone from Megan).
+    Returns the drafted message.
+    """
+    if not verify_internal_token(x_internal_token):
+        raise HTTPException(403, "Invalid internal token.")
+
+    context = (
+        f"Target Carrier: {data.carrier_name} | MC#{data.mc_number}\n"
+        f"Phone: {data.phone or 'unknown'}\n"
+        f"Additional context: {data.context or 'none'}"
+    )
+
+    reply = await asyncio.to_thread(
+        run_agent, "SDR_DAN.md",
+        f"Draft an outbound SMS to carrier {data.carrier_name} (MC#{data.mc_number}) to introduce Verlytax services.",
+        context,
+    )
+
+    await _log(
+        db, agent="dan_sdr", action_type="outbound_sdr_draft",
+        description=f"SDR draft for {data.carrier_name} MC#{data.mc_number}",
+        result="drafted",
+        carrier_mc=data.mc_number,
+    )
+
+    return {
+        "agent": "Dan SDR",
+        "carrier": data.carrier_name,
+        "mc_number": data.mc_number,
+        "drafted_sms": reply,
+        "note": "Review and send via /webhooks or Nova SMS.",
+    }
+
+
+# ── Nova SDR Send ─────────────────────────────────────────────────────────────
+
+@router.post("/sdr/nova")
+async def sdr_nova(
+    data: NovaSdrRequest,
+    x_internal_token: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Nova sends an outbound SDR SMS directly to the carrier.
+    Drafts via Megan or Dan's voice, then fires it via Nova SMS.
+    Use this when you want the message delivered immediately — not just drafted.
+    Requires INTERNAL_TOKEN.
+    """
+    if not verify_internal_token(x_internal_token):
+        raise HTTPException(403, "Invalid internal token.")
+
+    if data.sdr_agent not in ("megan", "dan"):
+        raise HTTPException(400, "sdr_agent must be 'megan' or 'dan'.")
+
+    prompt_file = "SDR_MEGAN.md" if data.sdr_agent == "megan" else "SDR_DAN.md"
+    agent_name = "Megan SDR" if data.sdr_agent == "megan" else "Dan SDR"
+
+    context = (
+        f"Target Carrier: {data.carrier_name} | MC#{data.mc_number}\n"
+        f"Phone: {data.phone}\n"
+        f"Additional context: {data.context or 'none'}\n"
+        f"Note: This message will be sent immediately via Nova SMS. Keep it concise and SMS-friendly."
+    )
+
+    drafted = await asyncio.to_thread(
+        run_agent, prompt_file,
+        f"Draft a cold outbound SMS to carrier {data.carrier_name} (MC#{data.mc_number}). "
+        f"This will be sent immediately — keep it under 160 characters.",
+        context,
+    )
+
+    # Nova sends it now
+    await asyncio.to_thread(nova_sms, data.phone, drafted)
+
+    await _log(
+        db, agent=f"nova_sdr_{data.sdr_agent}", action_type="outbound_sdr_sent",
+        description=f"Nova sent {agent_name} SMS to {data.carrier_name} MC#{data.mc_number} at {data.phone}",
+        result="sent",
+        carrier_mc=data.mc_number,
+    )
+
+    return {
+        "agent": f"Nova (via {agent_name})",
+        "carrier": data.carrier_name,
+        "mc_number": data.mc_number,
+        "phone": data.phone,
+        "sent_sms": drafted,
+        "status": "sent",
     }
 
 
