@@ -14,8 +14,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus, AutomationRule, AutomationLog, AgentMemory, ComplianceAudit, SupportTicket
-from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya, compliance, support, nova
-from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, log_automation, store_memory, run_agent
+from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya, compliance, support, nova, system
+from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, fmcsa_search_carriers, dat_search_carriers, log_automation, store_memory, run_agent
 
 from sqlalchemy import select
 from datetime import datetime
@@ -1006,6 +1006,7 @@ app.include_router(mya.router, prefix="/mya", tags=["Mya"])
 app.include_router(compliance.router, prefix="/compliance", tags=["Compliance"])
 app.include_router(support.router, prefix="/support", tags=["Support"])
 app.include_router(nova.router, prefix="/nova", tags=["Nova"])
+app.include_router(system.router, prefix="/system", tags=["System"])
 
 
 @app.get("/", response_class=HTMLResponse)

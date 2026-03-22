@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 
 from fastapi import Header
-from app.db import get_db, Carrier, CarrierStatus
+from app.db import get_db, Carrier, CarrierStatus, Load, LoadStatus
 from app.services import fmcsa_search_carriers, dat_search_carriers, verify_internal_token, log_automation
 
 router = APIRouter()
@@ -179,11 +179,17 @@ async def carrier_pipeline_stats(db: AsyncSession = Depends(get_db)):
         )
         counts[status.value] = len(result.scalars().all())
 
+    transit_result = await db.execute(
+        select(Load).where(Load.status == LoadStatus.in_transit)
+    )
+    in_transit = len(transit_result.scalars().all())
+
     return {
-        "pipeline": counts,
+        "pipeline": {**counts, "in_transit": in_transit},
         "total_active": counts.get("active", 0),
         "total_trial": counts.get("trial", 0),
         "total_leads": counts.get("lead", 0),
+        "in_transit": in_transit,
     }
 
 
