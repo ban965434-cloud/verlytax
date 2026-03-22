@@ -959,22 +959,13 @@
     </div>
 
     <!-- ACQUISITION -->
-    <div class="section-label">Acquisition <span class="count">2</span></div>
+    <div class="section-label">Acquisition <span class="count">1</span></div>
 
     <div class="agent-item" data-agent="megan" onclick="selectAgent('megan')">
       <div class="agent-avatar" style="background: linear-gradient(135deg,#ec4899 0%,#db2777 100%);">M</div>
       <div class="agent-info">
         <div class="agent-name">Megan</div>
         <div class="agent-role">Outbound SDR</div>
-      </div>
-      <div class="agent-status live"></div>
-    </div>
-
-    <div class="agent-item" data-agent="dan" onclick="selectAgent('dan')">
-      <div class="agent-avatar" style="background: linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%);">D</div>
-      <div class="agent-info">
-        <div class="agent-name">Dan</div>
-        <div class="agent-role">Outbound SDR (B-voice)</div>
       </div>
       <div class="agent-status live"></div>
     </div>
@@ -1014,6 +1005,7 @@
     <div class="stat-pill"><div class="sv green" id="statActive">—</div><div class="sl">Active Trucks</div></div>
     <div class="stat-pill"><div class="sv yellow" id="statTrial">—</div><div class="sl">In Trial</div></div>
     <div class="stat-pill"><div class="sv purple" id="statLeads">—</div><div class="sl">Leads</div></div>
+    <div class="stat-pill"><div class="sv" style="color:var(--accent)" id="statInTransit">—</div><div class="sl">In Transit</div></div>
     <div class="stat-pill"><div class="sv red" id="statSuspended">—</div><div class="sl">Suspended</div></div>
   </div>
 
@@ -1329,32 +1321,16 @@ const AGENTS = {
   megan: {
     name: 'Megan',
     role: 'Outbound SDR',
-    detail: 'Outbound SDR — cold outreach carrier acquisition SMS drafts',
+    detail: 'Outbound SDR — carrier acquisition cold outreach + follow-up sequences (primary + B-voice)',
     avatar: 'M',
     color: 'linear-gradient(135deg,#ec4899 0%,#db2777 100%)',
     badge: 'live',
-    desc: 'Megan drafts personalized outbound SMS for carrier acquisition. Give her a carrier name and MC# and she will write the approach.',
+    desc: 'Megan is the single consolidated SDR. She handles cold outreach, warm follow-ups, and B-voice sequences — give her a carrier name and MC# and she writes the approach.',
     actions: [
       'Draft an outbound SMS for a new carrier',
-      'What lanes should I target this week?',
-      'How does Megan personalize outreach?',
-      'Show me a sample Megan SDR message',
-    ],
-    canChat: false,
-    showStats: false,
-  },
-  dan: {
-    name: 'Dan',
-    role: 'Outbound SDR (B-voice)',
-    detail: 'Outbound SDR — carrier acquisition (B-voice variant, different tone)',
-    avatar: 'D',
-    color: 'linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)',
-    badge: 'live',
-    desc: 'Dan is the B-voice SDR — same mission as Megan, different energy. Use Dan for follow-up sequences or warmer leads that need a different approach.',
-    actions: [
       'Draft a follow-up SMS for a warm lead',
-      'When should I use Dan vs. Megan?',
-      'Show me Dan\'s tone and style',
+      'What lanes should I target this week?',
+      'Show me a sample outreach message',
     ],
     canChat: false,
     showStats: false,
@@ -1366,7 +1342,7 @@ const AGENTS = {
     avatar: 'M',
     color: 'linear-gradient(135deg,#06b6d4 0%,#0284c7 100%)',
     badge: 'live',
-    desc: 'Mya is the intelligence layer. She learns from every load, carrier, and dispute — storing memory that makes Erin, Megan, and Dan smarter every day. She also runs all 7 autonomous cron jobs.',
+    desc: 'Mya is the intelligence layer. She learns from every load, carrier, and dispute — storing memory that makes every agent smarter every day. She also runs all autonomous cron jobs.',
     actions: [],
     canChat: false,
     showStats: true,
@@ -1480,8 +1456,7 @@ function selectAgent(key) {
   else if (agent.badge === 'ready') { badge.classList.add('badge-ready'); badge.textContent = 'Ready'; }
   else { badge.classList.add('badge-shadow'); badge.textContent = 'Shadow'; }
 
-  // Stats strip
-  document.getElementById('statsStrip').classList.toggle('hidden', !agent.showStats);
+  // Stats strip — always visible
 
   // Custom panels
   const isBrain = (key === 'brain');
@@ -2122,6 +2097,7 @@ async function loadStats() {
     document.getElementById('statTrial').textContent = p.trial ?? '0';
     document.getElementById('statLeads').textContent = p.lead ?? '0';
     document.getElementById('statSuspended').textContent = p.suspended ?? '0';
+    document.getElementById('statInTransit').textContent = p.in_transit ?? data.in_transit ?? '0';
   } catch (_) {}
 }
 
