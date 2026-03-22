@@ -66,7 +66,7 @@ verlytax/
     │   ├── SOP_004_COMPLIANCE_MONITORING.md
     │   └── SOP_005_CUSTOMER_SUPPORT.md
     └── agents/
-        ├── DANIEL_EA.md               ← Delta's EA system prompt
+        ├── NOVA_EA.md                 ← Nova system prompt v2 (Delta's EA)
         ├── RECEPTIONIST.md            ← Inbound qualifier (Ava)
         ├── SDR_MEGAN.md               ← Outbound SDR (cold outreach)
         ├── SDR_DAN.md                 ← Outbound SDR (B-voice)
@@ -82,7 +82,7 @@ verlytax/
 | Agent | Role | Status | Location |
 |---|---|---|---|
 | **Erin** | AI Dispatcher — load booking, carrier comms, billing, proactive SMS | Active | `services.erin_respond()` + `Erin_System_Prompt_v4.txt` |
-| **Nova** | Executive Assistant — Delta SMS alerts, Day 1 packets, fee alerts | Active | `services.nova_sms()`, `services.nova_alert_ceo()` |
+| **Nova** | Executive Assistant — Delta SMS alerts, briefs, command execution (STATUS/BRIEF/HALT/RESUME/HALT ALL), escalation routing | Active | `services.nova_respond()` + `VERLYTAX_AIOS/agents/NOVA_EA.md` |
 | **Mya** | Intelligence & memory engine — learns from every operation, powers all automations | Active | `app/main.py` (9 scheduler jobs) + `VERLYTAX_AIOS/agents/MYA.md` |
 | **Ava** | Inbound qualifier — screens new carrier inquiries | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/RECEPTIONIST.md` |
 | **Megan SDR** | Outbound SDR — carrier acquisition cold outreach | Active | `app/routes/agents.py` + `VERLYTAX_AIOS/agents/SDR_MEGAN.md` |
