@@ -212,6 +212,110 @@ async def fmcsa_lookup(mc_number: str) -> dict:
             return {"status": "error", "reason": str(e)}
 
 
+async def fmcsa_search_carriers(state: str, limit: int = 50) -> list:
+    """
+    Search FMCSA for active dry van carriers in a given state.
+    Filters: active authority, 180+ days old, not FL-based.
+    Returns list of dicts ready for lead import.
+    Free endpoint — no Clearinghouse cost.
+    """
+    api_key = os.getenv("FMCSA_API_KEY", "")
+    if not api_key:
+        return []
+
+    url = f"https://mobile.fmcsa.dot.gov/qc/services/carriers?state={state}&webKey={api_key}"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+            carriers_raw = data.get("content", []) or []
+            results = []
+            cutoff = datetime.utcnow()
+            for c in carriers_raw:
+                if len(results) >= limit:
+                    break
+                # Must have active authority
+                if c.get("commonAuthorityStatus", "").upper() != "ACTIVE":
+                    continue
+                # Iron Rule 1 — never FL-based carriers
+                if c.get("phyState", "").upper() == "FL":
+                    continue
+                # Authority age >= 180 days
+                add_date_str = c.get("addDate", "")
+                try:
+                    add_date = datetime.strptime(add_date_str[:10], "%Y-%m-%d")
+                    age_days = (cutoff - add_date).days
+                except Exception:
+                    age_days = 0
+                if age_days < 180:
+                    continue
+                mc = c.get("dotNumber", "") or c.get("mcNumber", "")
+                name = c.get("legalName") or c.get("dbaName", "")
+                if not mc or not name:
+                    continue
+                results.append({
+                    "mc_number": str(mc),
+                    "name": name,
+                    "phone": c.get("telephone", ""),
+                    "dot_number": c.get("dotNumber", ""),
+                    "state": state,
+                    "authority_age_days": age_days,
+                    "source": "fmcsa",
+                })
+            return results
+        except Exception:
+            return []
+
+
+async def dat_search_carriers(states: list, limit: int = 50) -> list:
+    """
+    Search DAT One API for carriers with available trucks in target states.
+    Returns [] gracefully if DAT_API_KEY not configured — activates automatically
+    once Delta adds the key to .env.
+    """
+    api_key = os.getenv("DAT_API_KEY", "")
+    if not api_key:
+        return []
+
+    results = []
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            payload = {
+                "origin": {"states": states},
+                "equipmentType": "V",  # Van/dry van
+                "limit": limit,
+            }
+            resp = await client.post(
+                "https://api.dat.com/freight/carriers/search",
+                json=payload,
+                headers=headers,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            for c in data.get("carriers", []):
+                mc = c.get("mcNumber", "") or c.get("dotNumber", "")
+                name = c.get("companyName", "")
+                if not mc or not name:
+                    continue
+                # Iron Rule 1 — never FL-based carriers
+                if c.get("state", "").upper() == "FL":
+                    continue
+                results.append({
+                    "mc_number": str(mc),
+                    "name": name,
+                    "phone": c.get("phone", ""),
+                    "dot_number": c.get("dotNumber", ""),
+                    "state": c.get("state", ""),
+                    "authority_age_days": None,
+                    "source": "dat",
+                })
+        except Exception:
+            pass
+    return results
+
+
 # ── Automation helpers ────────────────────────────────────────────────────────
 
 def log_automation(

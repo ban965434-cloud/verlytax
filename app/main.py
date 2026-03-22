@@ -15,10 +15,21 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus, AutomationRule, AutomationLog, AgentMemory, ComplianceAudit, SupportTicket
 from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya, compliance, support
-from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, log_automation, store_memory, run_agent
+from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, fmcsa_search_carriers, dat_search_carriers, log_automation, store_memory, run_agent
 
 from sqlalchemy import select
 from datetime import datetime
+
+# ── Lead Gen target states (Phase 1: Texas + Midwest + Southeast, no FL) ─────
+LEAD_GEN_STATES = [
+    "TX",                                    # Texas
+    "IL", "IN", "OH", "MI", "MO",           # Midwest core
+    "IA", "MN", "WI", "KS", "NE",           # Midwest extended
+    "GA", "AL", "MS", "TN", "SC",           # Southeast
+    "NC", "VA", "KY",                        # Southeast extended
+]
+MAX_LEADS_PER_STATE = 50
+MAX_LEADS_PER_RUN = 200
 
 
 async def check_trial_touchpoints():
@@ -806,6 +817,83 @@ async def megan_sdr_outreach():
     )
 
 
+async def fmcsa_lead_gen():
+    """
+    Daily at 6:30 AM UTC — queries FMCSA (and DAT when key is set) for qualifying dry van
+    carriers across target states and auto-seeds them as LEAD in the DB.
+    Runs 30 min before compliance scans, 4.5 hrs before Megan's outreach.
+    Rule key: fmcsa_lead_gen
+    """
+    if not await _rule_enabled("fmcsa_lead_gen"):
+        return
+
+    now = datetime.utcnow()
+    new_count = 0
+    skipped_count = 0
+    states_queried = []
+
+    async with AsyncSessionLocal() as session:
+        for state in LEAD_GEN_STATES:
+            if new_count >= MAX_LEADS_PER_RUN:
+                break
+
+            fmcsa_results = await fmcsa_search_carriers(state, limit=MAX_LEADS_PER_STATE)
+            dat_results = await dat_search_carriers([state], limit=MAX_LEADS_PER_STATE)
+            combined = {c["mc_number"]: c for c in fmcsa_results + dat_results}  # dedup by MC#
+
+            if not combined:
+                continue
+            states_queried.append(state)
+
+            for mc_number, lead in combined.items():
+                if new_count >= MAX_LEADS_PER_RUN:
+                    break
+                # Skip if already in DB
+                existing = await session.execute(
+                    select(Carrier).where(Carrier.mc_number == mc_number)
+                )
+                if existing.scalar_one_or_none():
+                    skipped_count += 1
+                    continue
+
+                session.add(Carrier(
+                    mc_number=mc_number,
+                    name=lead["name"],
+                    phone=lead.get("phone") or None,
+                    dot_number=lead.get("dot_number") or None,
+                    truck_type="dry_van",
+                    status=CarrierStatus.LEAD,
+                    notes=(
+                        f"Auto-generated lead via {lead.get('source', 'fmcsa').upper()} — "
+                        f"State: {lead.get('state', state)} — "
+                        f"Authority age: {lead.get('authority_age_days') or 'unknown'} days — "
+                        f"Seeded: {now.strftime('%Y-%m-%d')}"
+                    ),
+                ))
+                new_count += 1
+
+        await session.commit()
+
+    log_automation(
+        agent="mya",
+        action_type="fmcsa_lead_gen",
+        description=f"Lead gen ran across {len(states_queried)} states",
+        result=f"{new_count} new leads added, {skipped_count} duplicates skipped",
+    )
+
+    if new_count > 0:
+        nova_alert_ceo(
+            subject=f"Lead Gen — {new_count} new carriers added",
+            body=(
+                f"Daily FMCSA/DAT lead gen complete.\n"
+                f"New leads: {new_count}\n"
+                f"Skipped (duplicates): {skipped_count}\n"
+                f"States queried: {', '.join(states_queried) or 'none'}\n"
+                f"Megan will contact stale leads at 11:00 AM UTC."
+            ),
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -876,6 +964,12 @@ async def lifespan(app: FastAPI):
         megan_sdr_outreach,
         CronTrigger(hour=11, minute=0, timezone="UTC"),
         id="megan_sdr_outreach",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        fmcsa_lead_gen,
+        CronTrigger(hour=6, minute=30, timezone="UTC"),
+        id="fmcsa_lead_gen",
         replace_existing=True,
     )
     scheduler.start()

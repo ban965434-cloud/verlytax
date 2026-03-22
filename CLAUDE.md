@@ -175,6 +175,7 @@ Six SQLAlchemy async models, all stored in `verlytax.db`:
 - `GET /carriers/list` — paginated carrier list with search + status filter
 - `GET /carriers/stats` — pipeline snapshot (counts by status)
 - `GET /carriers/export/csv` — export carrier list as CSV
+- `POST /carriers/generate-leads` — manually trigger FMCSA + DAT lead gen (requires INTERNAL_TOKEN); accepts optional `states` list to override defaults
 
 ### Brain (`/brain/*`)
 - `GET /brain/sops` — list all SOPs in VERLYTAX_AIOS/SOPs/
@@ -237,6 +238,7 @@ Nine crons run on startup via APScheduler. All governed by `AutomationRule` togg
 | `cora_compliance_scan()` | Mondays 7:30 AM UTC | `cora_compliance_scan` | Full compliance audit of all active + trial carriers; suspends RED violations |
 | `support_ticket_sweep()` | Daily 9:30 AM UTC | `support_ticket_sweep` | Zara follow-up SMS on tickets >24h; auto-escalates tickets >48h to Delta |
 | `megan_sdr_outreach()` | Daily 11:00 AM UTC | `megan_sdr_outreach` | Megan auto-contacts stale leads (14+ days, no conversion); up to 20 per run via Nova SMS |
+| `fmcsa_lead_gen()` | Daily 6:30 AM UTC | `fmcsa_lead_gen` | FMCSA + DAT search across TX/Midwest/SE target states; auto-seeds qualifying dry van carriers as LEAD; max 200/day; Delta gets Nova summary |
 
 **Note:** Friday fee charge was changed from Monday in the original design. Do not revert without Delta's approval.
 
@@ -355,7 +357,8 @@ Items already completed (do not re-add to roadmap):
 | `RETELL_AGENT_ID_ZARA` | Retell agent ID for outbound support escalation calls (Zara) |
 | `STRIPE_SECRET_KEY` | Stripe for fee collection |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |
-| `FMCSA_API_KEY` | Live FMCSA portal queries |
+| `FMCSA_API_KEY` | Live FMCSA portal queries + daily lead gen state search |
+| `DAT_API_KEY` | DAT One API for load board carrier search (leave blank until credentials obtained — lead gen activates it automatically) |
 | `INTERNAL_TOKEN` | Auth token for `/webhooks/internal` cron triggers |
 
 ---
