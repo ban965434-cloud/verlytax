@@ -4,9 +4,12 @@ Nova SMS | Erin (Claude AI) | Stripe billing | FMCSA checks
 """
 
 import os
+import re
+import time
 import hmac
 import hashlib
 import httpx
+from collections import defaultdict
 from datetime import datetime
 from typing import Optional
 
@@ -45,6 +48,8 @@ def nova_sms(to: str, body: str) -> dict:
     """
     if not _twilio:
         return {"status": "skipped", "reason": "Twilio not configured"}
+    if not _check_rate_limit("twilio"):
+        return {"status": "skipped", "reason": "Twilio rate limit reached"}
     try:
         msg = _twilio.messages.create(to=to, from_=TWILIO_FROM, body=body)
         return {"status": "sent", "sid": msg.sid}
@@ -102,6 +107,11 @@ def erin_respond(user_message: str, context: Optional[str] = None, memory_contex
     if not _claude:
         return "Erin is offline — ANTHROPIC_API_KEY not configured."
 
+    user_message = _sanitize_inbound(user_message)
+
+    if not _check_rate_limit("anthropic"):
+        return "Hi, this is Erin with Verlytax Operations. We're experiencing high volume right now — please reply in a few minutes and I'll get right back to you."
+
     system = _load_erin_system_prompt()
     if context:
         system += f"\n\n=== CURRENT CONTEXT (from verlytax.db) ===\n{context}"
@@ -115,7 +125,7 @@ def erin_respond(user_message: str, context: Optional[str] = None, memory_contex
             system=system,
             messages=[{"role": "user", "content": user_message}],
         )
-        return response.content[0].text
+        return _validate_response(response.content[0].text, source="erin")
     except Exception as e:
         return f"Erin encountered an error: {str(e)}"
 
@@ -202,6 +212,8 @@ async def fmcsa_lookup(mc_number: str) -> dict:
     api_key = os.getenv("FMCSA_API_KEY", "")
     if not api_key:
         return {"status": "skipped", "reason": "FMCSA_API_KEY not configured"}
+    if not _check_rate_limit("fmcsa"):
+        return {"status": "skipped", "reason": "FMCSA rate limit reached"}
 
     url = f"https://mobile.fmcsa.dot.gov/qc/services/carriers/{mc_number}?webKey={api_key}"
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -231,6 +243,8 @@ async def fmcsa_search_carriers(state: str, limit: int = 50) -> list:
     """
     api_key = os.getenv("FMCSA_API_KEY", "")
     if not api_key:
+        return []
+    if not _check_rate_limit("fmcsa"):
         return []
 
     url = f"https://mobile.fmcsa.dot.gov/qc/services/carriers?state={state}&webKey={api_key}"
@@ -326,6 +340,114 @@ async def dat_search_carriers(states: list, limit: int = 50) -> list:
     return results
 
 
+# ── Security Layer — PII Masking, Injection Guard, Hallucination Guard, Rate Limiter ──
+
+_PII_PATTERNS = [
+    (re.compile(r'\b\d{3}-\d{2}-\d{4}\b'),                          '[SSN-REDACTED]'),
+    (re.compile(r'\b\d{9}\b'),                                        '[SSN-REDACTED]'),
+    (re.compile(r'\b\d{4}[\s\-]\d{4}[\s\-]\d{4}[\s\-]\d{4}\b'),    '[CARD-REDACTED]'),
+    (re.compile(r'\b\d{16}\b'),                                       '[CARD-REDACTED]'),
+    (re.compile(r'routing[\s:]+\d{9}', re.I),                        '[ROUTING-REDACTED]'),
+    (re.compile(r'account[\s:]+\d{6,17}', re.I),                     '[ACCOUNT-REDACTED]'),
+    (re.compile(r'\bein[\s:]+\d{2}-\d{7}\b', re.I),                  '[EIN-REDACTED]'),
+]
+
+def _mask_pii(text: str) -> str:
+    """Scrub PII from any string before it is written to automation_logs."""
+    if not text:
+        return text
+    for pattern, replacement in _PII_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+_INJECTION_RE = re.compile(
+    r'ignore (previous|prior|all) instructions?'
+    r'|you are now'
+    r'|disregard (your|the) (system|prompt|instructions?)'
+    r'|pretend (you are|to be)'
+    r'|act as (if you are|though you are|a )?'
+    r'|reveal (your|the) (system|prompt|instructions?)'
+    r'|show me (your|the) (system|prompt)'
+    r'|new (persona|role|identity)'
+    r'|jailbreak'
+    r'|DAN mode',
+    re.I,
+)
+
+def _sanitize_inbound(text: str) -> str:
+    """Detect and block prompt injection attempts before messages reach any AI agent."""
+    if _INJECTION_RE.search(text or ""):
+        log_automation(
+            agent="security",
+            action_type="prompt_injection_blocked",
+            description=f"Injection attempt blocked: {(text or '')[:120]}",
+            result="blocked",
+        )
+        return "[Message blocked by Verlytax security filter]"
+    return text
+
+
+_PROHIBITED_LANGUAGE = [
+    'approximately', 'roughly', 'around', 'about',
+    'typically', 'usually', 'generally', 'often',
+    'i believe', 'i think', 'it appears', 'it seems',
+    'historically', 'in my experience', 'based on industry',
+    'estimated', 'projected',
+]
+
+def _validate_response(text: str, source: str = "agent") -> str:
+    """
+    Scan an agent response for hallucination language before it leaves the system.
+    Logs violation and alerts Delta — does not block delivery.
+    """
+    lower = (text or "").lower()
+    violations = [p for p in _PROHIBITED_LANGUAGE if p in lower]
+    if violations:
+        log_automation(
+            agent=source,
+            action_type="hallucination_flag",
+            description=f"Prohibited language detected {violations}: {text[:120]}",
+            result="flagged",
+        )
+        nova_alert_ceo(
+            subject=f"Hallucination Guard — {source} flagged",
+            body=f"Agent '{source}' used prohibited language: {violations}\n\nResponse preview:\n{text[:400]}",
+        )
+    return text
+
+
+_api_call_log: dict = defaultdict(list)
+_API_LIMITS = {
+    "fmcsa":      (50,  3600),   # 50 calls / hour
+    "anthropic":  (200, 3600),   # 200 calls / hour
+    "twilio":     (500, 3600),   # 500 SMS / hour
+}
+
+def _check_rate_limit(service: str) -> bool:
+    """
+    Returns True if the call is within limits, False if the rate cap is hit.
+    Uses a sliding window per service. In-memory — resets on app restart.
+    """
+    limit, window = _API_LIMITS.get(service, (1000, 3600))
+    now = time.time()
+    _api_call_log[service] = [t for t in _api_call_log[service] if now - t < window]
+    if len(_api_call_log[service]) >= limit:
+        log_automation(
+            agent="security",
+            action_type="rate_limit_exceeded",
+            description=f"{service} rate limit hit ({limit} calls/{window}s)",
+            result="blocked",
+        )
+        nova_alert_ceo(
+            subject=f"Rate Limit — {service}",
+            body=f"{service} API hit its rate cap ({limit}/{window}s). Calls paused until window clears.",
+        )
+        return False
+    _api_call_log[service].append(now)
+    return True
+
+
 # ── Automation helpers ────────────────────────────────────────────────────────
 
 def log_automation(
@@ -351,8 +473,8 @@ def log_automation(
                 action_type=action_type,
                 carrier_mc=carrier_mc,
                 load_id=load_id,
-                description=description,
-                result=result,
+                description=_mask_pii(description),
+                result=_mask_pii(result),
                 escalated_to_delta=escalated_to_delta,
             ))
             await session.commit()

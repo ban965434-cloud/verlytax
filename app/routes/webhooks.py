@@ -12,7 +12,7 @@ from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 
-from app.services import nova_alert_ceo, nova_sms, nova_respond, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, store_memory, RETELL_AGENT_IDS
+from app.services import nova_alert_ceo, nova_sms, nova_respond, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, store_memory, RETELL_AGENT_IDS, _sanitize_inbound
 
 router = APIRouter()
 
@@ -202,7 +202,7 @@ async def twilio_sms_reply(request: Request):
         raise HTTPException(403, "Invalid Twilio signature.")
 
     from_number = form.get("From", "")
-    body = form.get("Body", "")
+    body = _sanitize_inbound(form.get("Body", ""))
 
     # If from CEO — check for HALT/RESUME/STATUS/BRIEF/ACTIVATE CEO first, then Nova
     if from_number == CEO_PHONE:

@@ -30,6 +30,7 @@ class CarrierCreate(BaseModel):
     truck_type: str = "dry_van"
     authority_granted_date: Optional[datetime] = None
     factoring_company: Optional[str] = None
+    lead_score: Optional[str] = None   # A / B / C / X — set by SDR or Receptionist during screening
 
 class ComplianceUpdate(BaseModel):
     mc_number: str
@@ -62,6 +63,7 @@ async def create_lead(data: CarrierCreate, db: AsyncSession = Depends(get_db)):
         truck_type=data.truck_type,
         authority_granted_date=data.authority_granted_date,
         factoring_company=data.factoring_company,
+        lead_score=data.lead_score,
         status=CarrierStatus.LEAD,
     )
     db.add(carrier)

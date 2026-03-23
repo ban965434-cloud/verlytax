@@ -101,6 +101,7 @@ class Carrier(Base):
 
     # Notes (internal dispatch notes, import source, etc.)
     notes = Column(Text)
+    lead_score = Column(String, nullable=True)   # A / B / C / X — set by SDR or Receptionist
 
     # Flags
     is_blocked = Column(Boolean, default=False)

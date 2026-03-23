@@ -77,13 +77,25 @@ async def check_trial_touchpoints():
                     loads_result = await load_session.execute(
                         select(Load).where(Load.carrier_mc == c.mc_number)
                     )
-                    load_count = len(loads_result.scalars().all())
+                    trial_loads = loads_result.scalars().all()
+                    load_count = len(trial_loads)
+
+                first_name = c.name.split()[0]
+                if load_count > 0:
+                    gross = sum(l.rate_total or 0 for l in trial_loads)
+                    avg_rpm = sum(l.rate_per_mile or 0 for l in trial_loads) / load_count
+                    perf_line = (
+                        f"You ran {load_count} load(s) with us this week — "
+                        f"${gross:,.0f} gross, avg ${avg_rpm:.2f}/mi."
+                    )
+                else:
+                    perf_line = "Trial wraps today — let's get your first load on the board."
 
                 nova_sms(
                     c.phone,
-                    f"Hi {c.name.split()[0]}, this is Erin with Verlytax. "
-                    f"Your 7-day free trial wraps up today — you ran {load_count} load(s) with us. "
-                    f"Ready to go active? Reply YES and I'll get your account set up. "
+                    f"Hi {first_name}, this is Erin with Verlytax. "
+                    f"{perf_line} "
+                    f"Ready to go active? Reply YES and I'll lock in your account. "
                     f"Rate stays at 8%, you get paid every Friday. No surprises."
                 )
                 c.sms_day7_sent = True
