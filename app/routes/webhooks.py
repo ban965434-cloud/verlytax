@@ -4,10 +4,11 @@ Stripe payment events | Twilio SMS replies | Retell voice callbacks
 All webhooks are signature-verified.
 """
 
+import asyncio
 import os
 import hmac
 import hashlib
-import asyncio
+from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 
@@ -17,6 +18,123 @@ router = APIRouter()
 
 CEO_PHONE = os.getenv("CEO_PHONE", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+
+# ── CEO SMS Command Handler (Nova EA v2) ──────────────────────────────────────
+
+async def _handle_ceo_command(command: str) -> tuple[bool, str]:
+    """
+    Parse and execute a CEO SMS command.
+    Returns (was_command: bool, response_message: str).
+    All data sourced from verlytax.db — no estimates.
+    Commands: HALT | HALT ALL | RESUME | STATUS | BRIEF
+    """
+    from app.db import AsyncSessionLocal, Carrier, CarrierStatus, Load, LoadStatus, AutomationRule, EscalationLog
+    from sqlalchemy import select
+    from datetime import timedelta
+
+    cmd = command.strip().upper()
+
+    # ── HALT / HALT ALL ───────────────────────────────────────────────────────
+    if cmd in ("HALT", "HALT ALL"):
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(AutomationRule).where(AutomationRule.rule_key == "system_halt")
+            )
+            rule = result.scalar_one_or_none()
+            if rule:
+                rule.enabled = True
+            else:
+                session.add(AutomationRule(
+                    rule_key="system_halt",
+                    enabled=True,
+                    description="Master halt — all agents frozen by CEO command",
+                ))
+            await session.commit()
+        log_automation(agent="nova", action_type="ceo_command",
+            description="CEO issued HALT — all agents frozen", result="halted")
+        return True, "HALT confirmed. All agents frozen. Reply RESUME to restore."
+
+    # ── RESUME ────────────────────────────────────────────────────────────────
+    if cmd == "RESUME":
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(AutomationRule).where(AutomationRule.rule_key == "system_halt")
+            )
+            rule = result.scalar_one_or_none()
+            if rule:
+                rule.enabled = False
+                await session.commit()
+        log_automation(agent="nova", action_type="ceo_command",
+            description="CEO issued RESUME — all agents restored", result="resumed")
+        return True, "RESUME confirmed. All agents restored and running."
+
+    # ── STATUS ────────────────────────────────────────────────────────────────
+    if cmd == "STATUS":
+        async with AsyncSessionLocal() as session:
+            active = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.ACTIVE)
+            )).scalars().all()
+            trial = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.TRIAL)
+            )).scalars().all()
+            in_transit = (await session.execute(
+                select(Load).where(Load.status == LoadStatus.IN_TRANSIT)
+            )).scalars().all()
+            open_esc = (await session.execute(
+                select(EscalationLog).where(EscalationLog.resolved == False)
+            )).scalars().all()
+            halt_rule = (await session.execute(
+                select(AutomationRule).where(AutomationRule.rule_key == "system_halt")
+            )).scalar_one_or_none()
+            is_halted = halt_rule and halt_rule.enabled
+
+        msg = (
+            f"STATUS — {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n"
+            f"Agents: {'HALTED' if is_halted else 'RUNNING'}\n"
+            f"Active: {len(active)} | Trial: {len(trial)}\n"
+            f"In Transit: {len(in_transit)}\n"
+            f"Open Escalations: {len(open_esc)}"
+        )
+        return True, msg
+
+    # ── BRIEF ─────────────────────────────────────────────────────────────────
+    if cmd == "BRIEF":
+        now = datetime.utcnow()
+        week_ago = now - timedelta(days=7)
+        async with AsyncSessionLocal() as session:
+            active = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.ACTIVE)
+            )).scalars().all()
+            trial = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.TRIAL)
+            )).scalars().all()
+            leads = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.LEAD)
+            )).scalars().all()
+            recent_loads = (await session.execute(
+                select(Load).where(Load.created_at >= week_ago)
+            )).scalars().all()
+            open_esc = (await session.execute(
+                select(EscalationLog).where(EscalationLog.resolved == False)
+            )).scalars().all()
+
+        in_transit = [l for l in recent_loads if l.status == LoadStatus.IN_TRANSIT]
+        delivered = [l for l in recent_loads if l.status in (
+            LoadStatus.DELIVERED, LoadStatus.INVOICED, LoadStatus.PAID
+        )]
+        revenue = sum(l.fee_collected_cents or 0 for l in recent_loads if l.status == LoadStatus.PAID) / 100
+
+        msg = (
+            f"BRIEF — {now.strftime('%a %b %d %H:%M UTC')}\n"
+            f"Active: {len(active)} | Trial: {len(trial)} | Leads: {len(leads)}\n"
+            f"In Transit: {len(in_transit)} | Delivered 7d: {len(delivered)}\n"
+            f"Revenue 7d: ${revenue:.2f}\n"
+            f"Open Escalations: {len(open_esc)}"
+        )
+        return True, msg
+
+    return False, ""
 
 
 # ── Stripe Webhooks ───────────────────────────────────────────────────────────
@@ -86,10 +204,17 @@ async def twilio_sms_reply(request: Request):
     from_number = form.get("From", "")
     body = form.get("Body", "")
 
-    # If from CEO — route to Nova (Delta's operator, not Erin)
+    # If from CEO — check for HALT/RESUME/STATUS/BRIEF/ACTIVATE CEO first, then Nova
     if from_number == CEO_PHONE:
-        # Check for ACTIVATE CEO command
         cmd = body.strip().upper()
+
+        # HALT/RESUME/STATUS/BRIEF commands via _handle_ceo_command
+        was_command, cmd_response = await _handle_ceo_command(body)
+        if was_command:
+            await asyncio.to_thread(nova_sms, from_number, cmd_response)
+            return JSONResponse(content={"status": "command_executed", "to": from_number})
+
+        # ACTIVATE CEO special command
         if cmd == "ACTIVATE CEO":
             log_automation(
                 agent="ceo_agent",
@@ -115,12 +240,13 @@ async def twilio_sms_reply(request: Request):
                 "Nova will alert Delta when the gate is cleared."
             )
         else:
+            # Non-command CEO message — route through Nova EA v2
             reply = await asyncio.to_thread(
                 nova_respond,
                 body,
                 "Inbound SMS from Delta (CEO). Execute commands or answer questions per Nova protocols.",
             )
-            # CEO shadow: log every real Delta command as a training observation
+            # CEO shadow: log every Delta interaction as a training observation
             store_memory(
                 agent="ceo_agent",
                 memory_type="delta_command",
