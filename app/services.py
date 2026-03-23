@@ -37,6 +37,8 @@ except Exception:
 
 CEO_PHONE = os.getenv("CEO_PHONE", "")
 INTERNAL_TOKEN = os.getenv("INTERNAL_TOKEN", "")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CEO_CHAT_ID = os.getenv("TELEGRAM_CEO_CHAT_ID", "")
 
 
 # ── Nova SMS ──────────────────────────────────────────────────────────────────
@@ -57,12 +59,42 @@ def nova_sms(to: str, body: str) -> dict:
         return {"status": "error", "reason": str(e)}
 
 
+def telegram_notify(text: str, chat_id: str = None) -> dict:
+    """
+    Send a message to Delta via Telegram Bot API.
+    Uses TELEGRAM_CEO_CHAT_ID by default; pass chat_id to target a specific chat.
+    Falls back silently if TELEGRAM_BOT_TOKEN / TELEGRAM_CEO_CHAT_ID not configured.
+    """
+    target = chat_id or TELEGRAM_CEO_CHAT_ID
+    if not TELEGRAM_BOT_TOKEN or not target:
+        return {"status": "skipped", "reason": "Telegram not configured"}
+    if not _check_rate_limit("telegram"):
+        return {"status": "skipped", "reason": "Telegram rate limit reached"}
+    try:
+        resp = httpx.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={"chat_id": target, "text": text[:4096]},
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        return {"status": "sent", "message_id": resp.json().get("result", {}).get("message_id")}
+    except Exception as e:
+        return {"status": "error", "reason": str(e)}
+
+
 def nova_alert_ceo(subject: str, body: str) -> dict:
-    """Escalate to Delta (CEO) via SMS."""
-    if not CEO_PHONE:
-        return {"status": "skipped", "reason": "CEO_PHONE not set"}
+    """
+    Escalate to Delta (CEO) via SMS and/or Telegram — whichever channels are configured.
+    Both channels run in parallel if both are set up — either can serve as fallback.
+    """
     message = f"[VERLYTAX ALERT] {subject}\n\n{body}"
-    return nova_sms(CEO_PHONE, message)
+    results = {}
+    if CEO_PHONE:
+        results["sms"] = nova_sms(CEO_PHONE, message)
+    tg = telegram_notify(message)
+    if tg.get("status") != "skipped":
+        results["telegram"] = tg
+    return results if results else {"status": "skipped", "reason": "No notification channels configured"}
 
 
 def nova_day1_carrier_packet(carrier_phone: str, carrier_name: str, mc_number: str) -> dict:
@@ -422,6 +454,7 @@ _API_LIMITS = {
     "fmcsa":      (50,  3600),   # 50 calls / hour
     "anthropic":  (200, 3600),   # 200 calls / hour
     "twilio":     (500, 3600),   # 500 SMS / hour
+    "telegram":   (300, 3600),   # 300 messages / hour (conservative, Telegram allows ~30/sec)
 }
 
 def _check_rate_limit(service: str) -> bool:

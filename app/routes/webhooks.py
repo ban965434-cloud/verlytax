@@ -12,7 +12,7 @@ from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 
-from app.services import nova_alert_ceo, nova_sms, nova_respond, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, store_memory, RETELL_AGENT_IDS, _sanitize_inbound
+from app.services import nova_alert_ceo, nova_sms, nova_respond, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, store_memory, RETELL_AGENT_IDS, _sanitize_inbound, telegram_notify
 
 router = APIRouter()
 
@@ -508,3 +508,94 @@ async def internal_trigger(request: Request, x_internal_token: str = Header(None
         return {"status": "triggered", "action": action, "note": "Friday fee charge initiated"}
 
     return {"status": "unknown_action", "action": action}
+
+
+# ── Telegram Webhook (Delta CEO interface — fallback / parallel to Twilio) ────
+
+@router.post("/telegram")
+async def telegram_webhook(request: Request):
+    """
+    Handle inbound Telegram messages from Delta.
+    Processes the same command set as the Twilio SMS handler:
+    HALT | HALT ALL | RESUME | STATUS | BRIEF | ACTIVATE CEO
+    Any non-command message routes through Nova EA v2.
+
+    Setup (run once in browser or curl):
+      POST https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook
+      Body: {"url": "{RAILWAY_URL}/webhooks/telegram", "secret_token": "{TELEGRAM_WEBHOOK_SECRET}"}
+
+    Only accepts messages from Delta's TELEGRAM_CEO_CHAT_ID.
+    """
+    # Verify Telegram secret token (set during webhook registration)
+    tg_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+    incoming_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if tg_secret:
+        if not hmac.compare_digest(incoming_secret.encode(), tg_secret.encode()):
+            raise HTTPException(403, "Invalid Telegram webhook secret.")
+
+    data = await request.json()
+
+    # Support both message and edited_message updates
+    message = data.get("message") or data.get("edited_message")
+    if not message:
+        return {"status": "no_message"}
+
+    chat_id = str(message.get("chat", {}).get("id", ""))
+    text = (message.get("text") or "").strip()
+
+    # Whitelist check — only Delta's registered chat ID can issue commands
+    ceo_chat_id = os.getenv("TELEGRAM_CEO_CHAT_ID", "")
+    if not ceo_chat_id or chat_id != ceo_chat_id:
+        return {"status": "unauthorized"}
+
+    if not text:
+        return {"status": "empty_message"}
+
+    text = _sanitize_inbound(text)
+    cmd = text.strip().upper()
+
+    # ── HALT / RESUME / STATUS / BRIEF ────────────────────────────────────────
+    was_command, cmd_response = await _handle_ceo_command(text)
+    if was_command:
+        await asyncio.to_thread(telegram_notify, cmd_response, chat_id)
+        return {"status": "command_executed"}
+
+    # ── ACTIVATE CEO ──────────────────────────────────────────────────────────
+    if cmd == "ACTIVATE CEO":
+        log_automation(
+            agent="ceo_agent", action_type="activation_command",
+            description="Delta sent ACTIVATE CEO via Telegram — CEO Agent transitioning to active mode.",
+            result="pending_activation",
+        )
+        store_memory(
+            agent="ceo_agent", memory_type="activation_event",
+            content="Delta issued ACTIVATE CEO command via Telegram. CEO Agent mode transition initiated.",
+            subject="CEO Agent Activation", importance=5, source="delta",
+        )
+        reply = (
+            "CEO Agent activation received.\n\n"
+            "Activation gate:\n"
+            "- Shadow observations logged: see /nova/shadow-log\n"
+            "- Training log: see /nova/training-log\n\n"
+            "Confirm readiness in the dashboard and toggle CEO Agent rule in Brain. "
+            "Nova will alert you when the gate clears."
+        )
+    else:
+        # Non-command — route through Nova EA v2
+        reply = await asyncio.to_thread(
+            nova_respond,
+            text,
+            "Inbound Telegram message from Delta (CEO). Execute commands or answer questions per Nova protocols.",
+        )
+        store_memory(
+            agent="ceo_agent", memory_type="delta_command",
+            content=f"Delta Telegram: {text}\nNova response: {reply}",
+            subject=f"Delta command: {text[:60]}", importance=4, source="delta",
+        )
+        log_automation(
+            agent="nova", action_type="ceo_telegram_command",
+            description=f"CEO Telegram: {text[:80]}", result=reply[:200],
+        )
+
+    await asyncio.to_thread(telegram_notify, reply, chat_id)
+    return {"status": "replied"}
