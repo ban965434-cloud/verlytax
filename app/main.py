@@ -77,13 +77,25 @@ async def check_trial_touchpoints():
                     loads_result = await load_session.execute(
                         select(Load).where(Load.carrier_mc == c.mc_number)
                     )
-                    load_count = len(loads_result.scalars().all())
+                    trial_loads = loads_result.scalars().all()
+                    load_count = len(trial_loads)
+
+                first_name = c.name.split()[0]
+                if load_count > 0:
+                    gross = sum(l.rate_total or 0 for l in trial_loads)
+                    avg_rpm = sum(l.rate_per_mile or 0 for l in trial_loads) / load_count
+                    perf_line = (
+                        f"You ran {load_count} load(s) with us this week — "
+                        f"${gross:,.0f} gross, avg ${avg_rpm:.2f}/mi."
+                    )
+                else:
+                    perf_line = "Trial wraps today — let's get your first load on the board."
 
                 nova_sms(
                     c.phone,
-                    f"Hi {c.name.split()[0]}, this is Erin with Verlytax. "
-                    f"Your 7-day free trial wraps up today — you ran {load_count} load(s) with us. "
-                    f"Ready to go active? Reply YES and I'll get your account set up. "
+                    f"Hi {first_name}, this is Erin with Verlytax. "
+                    f"{perf_line} "
+                    f"Ready to go active? Reply YES and I'll lock in your account. "
                     f"Rate stays at 8%, you get paid every Friday. No surprises."
                 )
                 c.sms_day7_sent = True
@@ -194,8 +206,17 @@ async def friday_fee_charge():
 
 
 async def _rule_enabled(rule_key: str) -> bool:
-    """Check if an automation rule is enabled before running it."""
+    """Check if an automation rule is enabled before running it.
+    Always checks system_halt first — if Delta sent HALT, nothing runs."""
     async with AsyncSessionLocal() as session:
+        # Master halt check — HALT command freezes all agents immediately
+        halt_result = await session.execute(
+            select(AutomationRule).where(AutomationRule.rule_key == "system_halt")
+        )
+        halt_rule = halt_result.scalar_one_or_none()
+        if halt_rule and halt_rule.enabled:
+            return False
+
         result = await session.execute(
             select(AutomationRule).where(AutomationRule.rule_key == rule_key)
         )
@@ -894,6 +915,183 @@ async def fmcsa_lead_gen():
         )
 
 
+async def daily_brief():
+    """
+    Daily at 6:00 AM UTC — sends Delta a revenue and operations snapshot via Nova.
+    Every number traces to verlytax.db. No estimates.
+    Rule key: daily_brief
+    """
+    if not await _rule_enabled("daily_brief"):
+        return
+
+    from datetime import timedelta
+    now = datetime.utcnow()
+    week_ago = now - timedelta(days=7)
+
+    async with AsyncSessionLocal() as session:
+        active_result = await session.execute(
+            select(Carrier).where(Carrier.status == CarrierStatus.ACTIVE)
+        )
+        active_carriers = active_result.scalars().all()
+
+        trial_result = await session.execute(
+            select(Carrier).where(Carrier.status == CarrierStatus.TRIAL)
+        )
+        trial_carriers = trial_result.scalars().all()
+
+        lead_result = await session.execute(
+            select(Carrier).where(Carrier.status == CarrierStatus.LEAD)
+        )
+        lead_carriers = lead_result.scalars().all()
+
+        loads_result = await session.execute(
+            select(Load).where(Load.created_at >= week_ago)
+        )
+        recent_loads = loads_result.scalars().all()
+
+        from app.db import EscalationLog
+        esc_result = await session.execute(
+            select(EscalationLog).where(EscalationLog.status != "resolved")
+        )
+        open_escalations = esc_result.scalars().all()
+
+        # Check if system is halted
+        halt_result = await session.execute(
+            select(AutomationRule).where(AutomationRule.rule_key == "system_halt")
+        )
+        halt_rule = halt_result.scalar_one_or_none()
+        is_halted = halt_rule and halt_rule.enabled
+
+    in_transit = [l for l in recent_loads if l.status == LoadStatus.IN_TRANSIT]
+    delivered_week = [l for l in recent_loads if l.status in (
+        LoadStatus.DELIVERED, LoadStatus.INVOICED, LoadStatus.PAID
+    )]
+    paid_week = [l for l in recent_loads if l.status == LoadStatus.PAID]
+    revenue_collected = sum(l.verlytax_fee or 0 for l in paid_week)
+
+    expiring_soon = [
+        c for c in active_carriers
+        if c.coi_expiry and (c.coi_expiry - now).days <= 30
+    ]
+
+    lines = [
+        f"VERLYTAX DAILY BRIEF — {now.strftime('%a %b %d')}",
+        f"Agents: {'HALTED ⛔' if is_halted else 'RUNNING ✓'}",
+        f"Active: {len(active_carriers)} | Trial: {len(trial_carriers)} | Leads: {len(lead_carriers)}",
+        f"In Transit: {len(in_transit)} | Delivered (7d): {len(delivered_week)}",
+        f"Revenue Collected (7d): ${revenue_collected:.2f}",
+        f"Open Escalations: {len(open_escalations)}",
+    ]
+    if expiring_soon:
+        lines.append(f"COI Expiring <30d: {', '.join(c.mc_number for c in expiring_soon)}")
+
+    nova_alert_ceo(subject="Daily Brief", body="\n".join(lines))
+    log_automation(
+        agent="nova",
+        action_type="daily_brief",
+        description=f"Daily brief — {len(active_carriers)} active, {len(in_transit)} in transit, ${revenue_collected:.2f} collected",
+        result="sent",
+    )
+
+
+async def mya_weekly_score():
+    """
+    Weekly Sunday 3:00 AM UTC — Mya deep scores brokers, lanes, and carriers
+    from full historical load data. Writes 3 structured memory types.
+    Rule key: mya_learn
+    """
+    if not await _rule_enabled("mya_learn"):
+        return
+
+    now = datetime.utcnow()
+
+    async with AsyncSessionLocal() as session:
+        all_loads_result = await session.execute(select(Load))
+        all_loads = all_loads_result.scalars().all()
+
+        active_carriers_result = await session.execute(
+            select(Carrier).where(Carrier.status.in_([CarrierStatus.ACTIVE, CarrierStatus.TRIAL]))
+        )
+        active_carriers = active_carriers_result.scalars().all()
+
+    if not all_loads:
+        return
+
+    # ── Broker scoring ──────────────────────────────────────────────────────────
+    broker_data: dict = {}
+    for load in all_loads:
+        if not load.broker_name:
+            continue
+        b = broker_data.setdefault(load.broker_name, {"loads": 0, "total_rpm": 0.0})
+        b["loads"] += 1
+        b["total_rpm"] += load.rate_per_mile or 0
+
+    if broker_data:
+        broker_lines = []
+        for name, d in sorted(broker_data.items(), key=lambda x: -x[1]["loads"])[:20]:
+            avg_rpm = d["total_rpm"] / d["loads"]
+            broker_lines.append(f"{name}: {d['loads']} loads | avg ${avg_rpm:.2f}/mi")
+        broker_insight = await asyncio.to_thread(
+            run_agent, "MYA.md",
+            "Score these brokers from best to worst based on volume and RPM. Flag any to avoid.",
+            "Weekly broker data:\n" + "\n".join(broker_lines),
+        )
+        store_memory(agent="mya", memory_type="broker_score",
+            subject=f"Broker scores — {now.strftime('%Y-%m-%d')}",
+            content=broker_insight, importance=4, source="weekly_score")
+
+    # ── Lane scoring ────────────────────────────────────────────────────────────
+    lane_data: dict = {}
+    for load in all_loads:
+        if not load.origin_state or not load.destination_state:
+            continue
+        lane = f"{load.origin_state}→{load.destination_state}"
+        l = lane_data.setdefault(lane, {"loads": 0, "total_rpm": 0.0})
+        l["loads"] += 1
+        l["total_rpm"] += load.rate_per_mile or 0
+
+    if lane_data:
+        lane_lines = []
+        for lane, d in sorted(lane_data.items(), key=lambda x: -x[1]["loads"])[:20]:
+            avg_rpm = d["total_rpm"] / d["loads"]
+            lane_lines.append(f"{lane}: {d['loads']} loads | avg ${avg_rpm:.2f}/mi")
+        lane_insight = await asyncio.to_thread(
+            run_agent, "MYA.md",
+            "Rank these lanes by profitability and volume. Identify top 5 priority lanes and any to deprioritize.",
+            "Weekly lane data:\n" + "\n".join(lane_lines),
+        )
+        store_memory(agent="mya", memory_type="lane_insight",
+            subject=f"Lane scores — {now.strftime('%Y-%m-%d')}",
+            content=lane_insight, importance=4, source="weekly_score")
+
+    # ── Carrier scoring ─────────────────────────────────────────────────────────
+    carrier_lines = []
+    for carrier in active_carriers:
+        carrier_loads = [l for l in all_loads if l.carrier_mc == carrier.mc_number]
+        if not carrier_loads:
+            continue
+        avg_rpm = sum(l.rate_per_mile or 0 for l in carrier_loads) / len(carrier_loads)
+        carrier_lines.append(
+            f"MC#{carrier.mc_number} {carrier.name}: {len(carrier_loads)} loads | avg ${avg_rpm:.2f}/mi | status:{carrier.status}"
+        )
+
+    if carrier_lines:
+        carrier_insight = await asyncio.to_thread(
+            run_agent, "MYA.md",
+            "Analyze carrier performance. Flag underperformers and at-risk carriers. Identify top performers.",
+            "Weekly carrier data:\n" + "\n".join(carrier_lines[:30]),
+        )
+        store_memory(agent="mya", memory_type="carrier_profile",
+            subject=f"Carrier scores — {now.strftime('%Y-%m-%d')}",
+            content=carrier_insight, importance=4, source="weekly_score")
+
+    log_automation(
+        agent="mya", action_type="weekly_score",
+        description=f"Weekly deep score: {len(broker_data)} brokers, {len(lane_data)} lanes, {len(carrier_lines)} carriers",
+        result="stored",
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -943,9 +1141,21 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
     )
     scheduler.add_job(
-        mya_learn,
+        daily_brief,
         CronTrigger(hour=6, minute=0, timezone="UTC"),
+        id="daily_brief",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        mya_learn,
+        CronTrigger(hour=6, minute=10, timezone="UTC"),
         id="mya_learn",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        mya_weekly_score,
+        CronTrigger(day_of_week="sun", hour=3, minute=0, timezone="UTC"),
+        id="mya_weekly_score",
         replace_existing=True,
     )
     scheduler.add_job(
@@ -1021,12 +1231,12 @@ async def dashboard():
 
 @app.get("/about", response_class=HTMLResponse)
 async def about():
-    """ClearRoute Dispatch public about page — PAS formula, trust badges, FAQs."""
+    """Verlytax Dispatch public about page — PAS formula, trust badges, FAQs."""
     path = os.path.join(static_dir, "about.html")
     if os.path.exists(path):
         with open(path) as f:
             return f.read()
-    return HTMLResponse("<h1>About ClearRoute Dispatch</h1>")
+    return HTMLResponse("<h1>About Verlytax Dispatch</h1>")
 
 
 @app.get("/carrier-packet", response_class=HTMLResponse)
@@ -1036,7 +1246,7 @@ async def carrier_packet():
     if os.path.exists(path):
         with open(path) as f:
             return f.read()
-    return HTMLResponse("<h1>ClearRoute Carrier Packet</h1>")
+    return HTMLResponse("<h1>Verlytax Carrier Packet</h1>")
 
 
 @app.get("/shipper-broker-packet", response_class=HTMLResponse)
@@ -1046,7 +1256,7 @@ async def shipper_broker_packet():
     if os.path.exists(path):
         with open(path) as f:
             return f.read()
-    return HTMLResponse("<h1>ClearRoute Broker Packet</h1>")
+    return HTMLResponse("<h1>Verlytax Broker Packet</h1>")
 
 
 class ErinChatRequest(BaseModel):

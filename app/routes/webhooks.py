@@ -4,19 +4,137 @@ Stripe payment events | Twilio SMS replies | Retell voice callbacks
 All webhooks are signature-verified.
 """
 
+import asyncio
 import os
 import hmac
 import hashlib
-import asyncio
+from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 
-from app.services import nova_alert_ceo, nova_sms, nova_respond, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, store_memory, RETELL_AGENT_IDS
+from app.services import nova_alert_ceo, nova_sms, nova_respond, erin_respond, verify_twilio_signature, recall_memories, run_agent, log_automation, store_memory, RETELL_AGENT_IDS, _sanitize_inbound, telegram_notify
 
 router = APIRouter()
 
 CEO_PHONE = os.getenv("CEO_PHONE", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+
+# ── CEO SMS Command Handler (Nova EA v2) ──────────────────────────────────────
+
+async def _handle_ceo_command(command: str) -> tuple[bool, str]:
+    """
+    Parse and execute a CEO SMS command.
+    Returns (was_command: bool, response_message: str).
+    All data sourced from verlytax.db — no estimates.
+    Commands: HALT | HALT ALL | RESUME | STATUS | BRIEF
+    """
+    from app.db import AsyncSessionLocal, Carrier, CarrierStatus, Load, LoadStatus, AutomationRule, EscalationLog
+    from sqlalchemy import select
+    from datetime import timedelta
+
+    cmd = command.strip().upper()
+
+    # ── HALT / HALT ALL ───────────────────────────────────────────────────────
+    if cmd in ("HALT", "HALT ALL"):
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(AutomationRule).where(AutomationRule.rule_key == "system_halt")
+            )
+            rule = result.scalar_one_or_none()
+            if rule:
+                rule.enabled = True
+            else:
+                session.add(AutomationRule(
+                    rule_key="system_halt",
+                    enabled=True,
+                    description="Master halt — all agents frozen by CEO command",
+                ))
+            await session.commit()
+        log_automation(agent="nova", action_type="ceo_command",
+            description="CEO issued HALT — all agents frozen", result="halted")
+        return True, "HALT confirmed. All agents frozen. Reply RESUME to restore."
+
+    # ── RESUME ────────────────────────────────────────────────────────────────
+    if cmd == "RESUME":
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(AutomationRule).where(AutomationRule.rule_key == "system_halt")
+            )
+            rule = result.scalar_one_or_none()
+            if rule:
+                rule.enabled = False
+                await session.commit()
+        log_automation(agent="nova", action_type="ceo_command",
+            description="CEO issued RESUME — all agents restored", result="resumed")
+        return True, "RESUME confirmed. All agents restored and running."
+
+    # ── STATUS ────────────────────────────────────────────────────────────────
+    if cmd == "STATUS":
+        async with AsyncSessionLocal() as session:
+            active = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.ACTIVE)
+            )).scalars().all()
+            trial = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.TRIAL)
+            )).scalars().all()
+            in_transit = (await session.execute(
+                select(Load).where(Load.status == LoadStatus.IN_TRANSIT)
+            )).scalars().all()
+            open_esc = (await session.execute(
+                select(EscalationLog).where(EscalationLog.status != "resolved")
+            )).scalars().all()
+            halt_rule = (await session.execute(
+                select(AutomationRule).where(AutomationRule.rule_key == "system_halt")
+            )).scalar_one_or_none()
+            is_halted = halt_rule and halt_rule.enabled
+
+        msg = (
+            f"STATUS — {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n"
+            f"Agents: {'HALTED' if is_halted else 'RUNNING'}\n"
+            f"Active: {len(active)} | Trial: {len(trial)}\n"
+            f"In Transit: {len(in_transit)}\n"
+            f"Open Escalations: {len(open_esc)}"
+        )
+        return True, msg
+
+    # ── BRIEF ─────────────────────────────────────────────────────────────────
+    if cmd == "BRIEF":
+        now = datetime.utcnow()
+        week_ago = now - timedelta(days=7)
+        async with AsyncSessionLocal() as session:
+            active = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.ACTIVE)
+            )).scalars().all()
+            trial = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.TRIAL)
+            )).scalars().all()
+            leads = (await session.execute(
+                select(Carrier).where(Carrier.status == CarrierStatus.LEAD)
+            )).scalars().all()
+            recent_loads = (await session.execute(
+                select(Load).where(Load.created_at >= week_ago)
+            )).scalars().all()
+            open_esc = (await session.execute(
+                select(EscalationLog).where(EscalationLog.status != "resolved")
+            )).scalars().all()
+
+        in_transit = [l for l in recent_loads if l.status == LoadStatus.IN_TRANSIT]
+        delivered = [l for l in recent_loads if l.status in (
+            LoadStatus.DELIVERED, LoadStatus.INVOICED, LoadStatus.PAID
+        )]
+        revenue = sum(l.verlytax_fee or 0 for l in recent_loads if l.status == LoadStatus.PAID)
+
+        msg = (
+            f"BRIEF — {now.strftime('%a %b %d %H:%M UTC')}\n"
+            f"Active: {len(active)} | Trial: {len(trial)} | Leads: {len(leads)}\n"
+            f"In Transit: {len(in_transit)} | Delivered 7d: {len(delivered)}\n"
+            f"Revenue 7d: ${revenue:.2f}\n"
+            f"Open Escalations: {len(open_esc)}"
+        )
+        return True, msg
+
+    return False, ""
 
 
 # ── Stripe Webhooks ───────────────────────────────────────────────────────────
@@ -84,12 +202,19 @@ async def twilio_sms_reply(request: Request):
         raise HTTPException(403, "Invalid Twilio signature.")
 
     from_number = form.get("From", "")
-    body = form.get("Body", "")
+    body = _sanitize_inbound(form.get("Body", ""))
 
-    # If from CEO — route to Nova (Delta's operator, not Erin)
+    # If from CEO — check for HALT/RESUME/STATUS/BRIEF/ACTIVATE CEO first, then Nova
     if from_number == CEO_PHONE:
-        # Check for ACTIVATE CEO command
         cmd = body.strip().upper()
+
+        # HALT/RESUME/STATUS/BRIEF commands via _handle_ceo_command
+        was_command, cmd_response = await _handle_ceo_command(body)
+        if was_command:
+            await asyncio.to_thread(nova_sms, from_number, cmd_response)
+            return JSONResponse(content={"status": "command_executed", "to": from_number})
+
+        # ACTIVATE CEO special command
         if cmd == "ACTIVATE CEO":
             log_automation(
                 agent="ceo_agent",
@@ -115,12 +240,13 @@ async def twilio_sms_reply(request: Request):
                 "Nova will alert Delta when the gate is cleared."
             )
         else:
+            # Non-command CEO message — route through Nova EA v2
             reply = await asyncio.to_thread(
                 nova_respond,
                 body,
                 "Inbound SMS from Delta (CEO). Execute commands or answer questions per Nova protocols.",
             )
-            # CEO shadow: log every real Delta command as a training observation
+            # CEO shadow: log every Delta interaction as a training observation
             store_memory(
                 agent="ceo_agent",
                 memory_type="delta_command",
@@ -382,3 +508,180 @@ async def internal_trigger(request: Request, x_internal_token: str = Header(None
         return {"status": "triggered", "action": action, "note": "Friday fee charge initiated"}
 
     return {"status": "unknown_action", "action": action}
+
+
+# ── Telegram Setup (one-time webhook registration) ────────────────────────────
+
+@router.get("/telegram/setup")
+async def telegram_setup(request: Request, x_internal_token: str = Header(None)):
+    """
+    One-time Telegram webhook registration.
+    Reads TELEGRAM_BOT_TOKEN + TELEGRAM_WEBHOOK_SECRET from env and registers
+    this app's /webhooks/telegram URL with Telegram's Bot API.
+    Requires INTERNAL_TOKEN header.
+    Call once after deploy: GET /webhooks/telegram/setup
+    """
+    from app.services import verify_internal_token
+    if not x_internal_token or not verify_internal_token(x_internal_token):
+        raise HTTPException(403, "Unauthorized.")
+
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+    if not token:
+        raise HTTPException(400, "TELEGRAM_BOT_TOKEN not set in Railway env vars.")
+
+    # Derive the webhook URL from the incoming request host
+    base_url = str(request.base_url).rstrip("/")
+    webhook_url = f"{base_url}/webhooks/telegram"
+
+    import httpx
+    params = {"url": webhook_url}
+    if secret:
+        params["secret_token"] = secret
+
+    try:
+        resp = httpx.post(
+            f"https://api.telegram.org/bot{token}/setWebhook",
+            json=params,
+            timeout=10.0,
+        )
+        result = resp.json()
+        return {
+            "status": "done" if result.get("ok") else "failed",
+            "webhook_url": webhook_url,
+            "telegram_response": result,
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Telegram API error: {e}")
+
+
+@router.get("/telegram/me")
+async def telegram_get_me(x_internal_token: str = Header(None)):
+    """
+    Returns bot info + pending updates (includes chat IDs of anyone who messaged the bot).
+    Use this to find TELEGRAM_CEO_CHAT_ID after messaging the bot.
+    Requires INTERNAL_TOKEN header.
+    """
+    from app.services import verify_internal_token
+    if not x_internal_token or not verify_internal_token(x_internal_token):
+        raise HTTPException(403, "Unauthorized.")
+
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        raise HTTPException(400, "TELEGRAM_BOT_TOKEN not set in Railway env vars.")
+
+    import httpx
+    try:
+        me = httpx.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10.0).json()
+        updates = httpx.get(f"https://api.telegram.org/bot{token}/getUpdates", timeout=10.0).json()
+        chat_ids = []
+        for u in updates.get("result", []):
+            msg = u.get("message") or u.get("edited_message", {})
+            chat = msg.get("chat", {})
+            if chat.get("id"):
+                chat_ids.append({
+                    "chat_id": chat["id"],
+                    "name": chat.get("first_name", "") + " " + chat.get("last_name", ""),
+                    "username": chat.get("username", ""),
+                })
+        # Deduplicate
+        seen = set()
+        unique = [c for c in chat_ids if not (c["chat_id"] in seen or seen.add(c["chat_id"]))]
+        return {
+            "bot": me.get("result", {}),
+            "chat_ids_found": unique,
+            "note": "Set TELEGRAM_CEO_CHAT_ID in Railway to your chat_id from the list above.",
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Telegram API error: {e}")
+
+
+# ── Telegram Webhook (Delta CEO interface — fallback / parallel to Twilio) ────
+
+@router.post("/telegram")
+async def telegram_webhook(request: Request):
+    """
+    Handle inbound Telegram messages from Delta.
+    Processes the same command set as the Twilio SMS handler:
+    HALT | HALT ALL | RESUME | STATUS | BRIEF | ACTIVATE CEO
+    Any non-command message routes through Nova EA v2.
+
+    Setup (run once in browser or curl):
+      POST https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook
+      Body: {"url": "{RAILWAY_URL}/webhooks/telegram", "secret_token": "{TELEGRAM_WEBHOOK_SECRET}"}
+
+    Only accepts messages from Delta's TELEGRAM_CEO_CHAT_ID.
+    """
+    # Verify Telegram secret token (set during webhook registration)
+    tg_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+    incoming_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if tg_secret:
+        if not hmac.compare_digest(incoming_secret.encode(), tg_secret.encode()):
+            raise HTTPException(403, "Invalid Telegram webhook secret.")
+
+    data = await request.json()
+
+    # Support both message and edited_message updates
+    message = data.get("message") or data.get("edited_message")
+    if not message:
+        return {"status": "no_message"}
+
+    chat_id = str(message.get("chat", {}).get("id", ""))
+    text = (message.get("text") or "").strip()
+
+    # Whitelist check — only Delta's registered chat ID can issue commands
+    ceo_chat_id = os.getenv("TELEGRAM_CEO_CHAT_ID", "")
+    if not ceo_chat_id or chat_id != ceo_chat_id:
+        return {"status": "unauthorized"}
+
+    if not text:
+        return {"status": "empty_message"}
+
+    text = _sanitize_inbound(text)
+    cmd = text.strip().upper()
+
+    # ── HALT / RESUME / STATUS / BRIEF ────────────────────────────────────────
+    was_command, cmd_response = await _handle_ceo_command(text)
+    if was_command:
+        await asyncio.to_thread(telegram_notify, cmd_response, chat_id)
+        return {"status": "command_executed"}
+
+    # ── ACTIVATE CEO ──────────────────────────────────────────────────────────
+    if cmd == "ACTIVATE CEO":
+        log_automation(
+            agent="ceo_agent", action_type="activation_command",
+            description="Delta sent ACTIVATE CEO via Telegram — CEO Agent transitioning to active mode.",
+            result="pending_activation",
+        )
+        store_memory(
+            agent="ceo_agent", memory_type="activation_event",
+            content="Delta issued ACTIVATE CEO command via Telegram. CEO Agent mode transition initiated.",
+            subject="CEO Agent Activation", importance=5, source="delta",
+        )
+        reply = (
+            "CEO Agent activation received.\n\n"
+            "Activation gate:\n"
+            "- Shadow observations logged: see /nova/shadow-log\n"
+            "- Training log: see /nova/training-log\n\n"
+            "Confirm readiness in the dashboard and toggle CEO Agent rule in Brain. "
+            "Nova will alert you when the gate clears."
+        )
+    else:
+        # Non-command — route through Nova EA v2
+        reply = await asyncio.to_thread(
+            nova_respond,
+            text,
+            "Inbound Telegram message from Delta (CEO). Execute commands or answer questions per Nova protocols.",
+        )
+        store_memory(
+            agent="ceo_agent", memory_type="delta_command",
+            content=f"Delta Telegram: {text}\nNova response: {reply}",
+            subject=f"Delta command: {text[:60]}", importance=4, source="delta",
+        )
+        log_automation(
+            agent="nova", action_type="ceo_telegram_command",
+            description=f"CEO Telegram: {text[:80]}", result=reply[:200],
+        )
+
+    await asyncio.to_thread(telegram_notify, reply, chat_id)
+    return {"status": "replied"}

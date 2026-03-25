@@ -101,6 +101,7 @@ class Carrier(Base):
 
     # Notes (internal dispatch notes, import source, etc.)
     notes = Column(Text)
+    lead_score = Column(String, nullable=True)   # A / B / C / X — set by SDR or Receptionist
 
     # Flags
     is_blocked = Column(Boolean, default=False)
@@ -320,9 +321,12 @@ DEFAULT_AUTOMATION_RULES = [
     ("overdue_load_scan",     "Daily scan for loads in-transit past delivery date by 24+ hours"),
     ("stale_lead_scan",       "Daily scan for leads with no activity in 14+ days — alerts Delta"),
     ("no_load_carrier_scan",  "Daily scan for active carriers with no loads in 14+ days — Erin check-in SMS"),
-    ("mya_learn",             "Daily 6 AM — Mya synthesizes load/dispute data into AgentMemory learnings"),
+    ("mya_learn",             "Daily 6:10 AM — Mya synthesizes load/dispute data into AgentMemory learnings"),
     ("cora_compliance_scan",  "Weekly Monday 7:30 AM — Cora audits all active carriers for compliance violations"),
     ("support_ticket_sweep",  "Daily 9:30 AM — Zara follows up on open tickets >24h; auto-escalates tickets >48h"),
+    ("daily_brief",           "Daily 6:00 AM — Nova sends Delta a revenue + ops snapshot SMS from verlytax.db"),
+    ("megan_sdr_outreach",    "Daily 11:00 AM — Megan auto-contacts stale leads (14+ days no conversion)"),
+    ("fmcsa_lead_gen",        "Daily 6:30 AM — FMCSA/DAT lead gen across target states; seeds qualifying carriers as LEAD"),
 ]
 
 
