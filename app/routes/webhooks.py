@@ -510,6 +510,92 @@ async def internal_trigger(request: Request, x_internal_token: str = Header(None
     return {"status": "unknown_action", "action": action}
 
 
+# ── Telegram Setup (one-time webhook registration) ────────────────────────────
+
+@router.get("/telegram/setup")
+async def telegram_setup(request: Request, x_internal_token: str = Header(None)):
+    """
+    One-time Telegram webhook registration.
+    Reads TELEGRAM_BOT_TOKEN + TELEGRAM_WEBHOOK_SECRET from env and registers
+    this app's /webhooks/telegram URL with Telegram's Bot API.
+    Requires INTERNAL_TOKEN header.
+    Call once after deploy: GET /webhooks/telegram/setup
+    """
+    from app.services import verify_internal_token
+    if not x_internal_token or not verify_internal_token(x_internal_token):
+        raise HTTPException(403, "Unauthorized.")
+
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+    if not token:
+        raise HTTPException(400, "TELEGRAM_BOT_TOKEN not set in Railway env vars.")
+
+    # Derive the webhook URL from the incoming request host
+    base_url = str(request.base_url).rstrip("/")
+    webhook_url = f"{base_url}/webhooks/telegram"
+
+    import httpx
+    params = {"url": webhook_url}
+    if secret:
+        params["secret_token"] = secret
+
+    try:
+        resp = httpx.post(
+            f"https://api.telegram.org/bot{token}/setWebhook",
+            json=params,
+            timeout=10.0,
+        )
+        result = resp.json()
+        return {
+            "status": "done" if result.get("ok") else "failed",
+            "webhook_url": webhook_url,
+            "telegram_response": result,
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Telegram API error: {e}")
+
+
+@router.get("/telegram/me")
+async def telegram_get_me(x_internal_token: str = Header(None)):
+    """
+    Returns bot info + pending updates (includes chat IDs of anyone who messaged the bot).
+    Use this to find TELEGRAM_CEO_CHAT_ID after messaging the bot.
+    Requires INTERNAL_TOKEN header.
+    """
+    from app.services import verify_internal_token
+    if not x_internal_token or not verify_internal_token(x_internal_token):
+        raise HTTPException(403, "Unauthorized.")
+
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        raise HTTPException(400, "TELEGRAM_BOT_TOKEN not set in Railway env vars.")
+
+    import httpx
+    try:
+        me = httpx.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10.0).json()
+        updates = httpx.get(f"https://api.telegram.org/bot{token}/getUpdates", timeout=10.0).json()
+        chat_ids = []
+        for u in updates.get("result", []):
+            msg = u.get("message") or u.get("edited_message", {})
+            chat = msg.get("chat", {})
+            if chat.get("id"):
+                chat_ids.append({
+                    "chat_id": chat["id"],
+                    "name": chat.get("first_name", "") + " " + chat.get("last_name", ""),
+                    "username": chat.get("username", ""),
+                })
+        # Deduplicate
+        seen = set()
+        unique = [c for c in chat_ids if not (c["chat_id"] in seen or seen.add(c["chat_id"]))]
+        return {
+            "bot": me.get("result", {}),
+            "chat_ids_found": unique,
+            "note": "Set TELEGRAM_CEO_CHAT_ID in Railway to your chat_id from the list above.",
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Telegram API error: {e}")
+
+
 # ── Telegram Webhook (Delta CEO interface — fallback / parallel to Twilio) ────
 
 @router.post("/telegram")
