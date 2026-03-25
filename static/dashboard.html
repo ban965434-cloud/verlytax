@@ -1204,6 +1204,15 @@
   <div class="brain-panel hidden" id="novaPanel">
 
     <div class="brain-section">
+      <div class="brain-section-title">🔑 Internal Token</div>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="novaTokenInput" class="teach-input" style="flex:1" placeholder="Paste your INTERNAL_TOKEN here to run scenarios…" oninput="saveToken(this.value)">
+        <span id="novaTokenStatus" style="font-size:0.75rem;color:var(--muted);align-self:center;white-space:nowrap"></span>
+      </div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-top:4px">Same token as Brain panel — stored in session only.</div>
+    </div>
+
+    <div class="brain-section">
       <div class="brain-section-title">⚡ Nova Command Center
         <span style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);font-weight:400;text-transform:none;letter-spacing:0">Test scenarios without Twilio. Every run is logged to CEO shadow + SOP training log.</span>
       </div>
@@ -1468,7 +1477,7 @@ function selectAgent(key) {
     loadBrainRules();
     loadBrainLog();
     loadMyaMemory();
-    // Restore saved token to input
+    // Restore saved token to Brain panel input
     const saved = sessionStorage.getItem('verlytax_token');
     const tokenInput = document.getElementById('internalToken');
     const tokenStatus = document.getElementById('tokenStatus');
@@ -1476,6 +1485,19 @@ function selectAgent(key) {
       tokenInput.value = saved;
       if (tokenStatus) tokenStatus.textContent = '✓ Saved';
     }
+    return;
+  }
+
+  if (isNova) {
+    // Restore saved token to Nova panel input
+    const saved = sessionStorage.getItem('verlytax_token');
+    const novaInput = document.getElementById('novaTokenInput');
+    const novaStatus = document.getElementById('novaTokenStatus');
+    if (novaInput) {
+      novaInput.value = saved || '';
+      if (novaStatus) novaStatus.textContent = saved ? '✓ Saved' : '';
+    }
+    loadShadowLog();
     return;
   }
 
@@ -1527,8 +1549,15 @@ function getToken() {
 
 function saveToken(val) {
   sessionStorage.setItem('verlytax_token', val.trim());
-  const status = document.getElementById('tokenStatus');
-  if (status) status.textContent = val.trim() ? '✓ Saved' : '';
+  // Sync both token inputs (Brain panel + Nova panel)
+  const brainInput = document.getElementById('internalToken');
+  const novaInput = document.getElementById('novaTokenInput');
+  if (brainInput && brainInput !== document.activeElement) brainInput.value = val;
+  if (novaInput && novaInput !== document.activeElement) novaInput.value = val;
+  const s1 = document.getElementById('tokenStatus');
+  const s2 = document.getElementById('novaTokenStatus');
+  if (s1) s1.textContent = val.trim() ? '✓ Saved' : '';
+  if (s2) s2.textContent = val.trim() ? '✓ Saved' : '';
 }
 
 async function telegramFindChatId() {
@@ -2267,13 +2296,15 @@ async function sendNovaFreeText() {
 
 async function _novaTest(message, scenario) {
   const token = getToken();
-  if (!token) {
-    alert('Enter your Internal Token in the Brain panel first.');
-    return;
-  }
   const box = document.getElementById('novaResponseBox');
   const placeholder = document.getElementById('novaResponsePlaceholder');
   const clearBtn = document.getElementById('novaResponseClear');
+  if (!token) {
+    placeholder.style.display = 'flex';
+    placeholder.textContent = '⚠ Enter your INTERNAL_TOKEN in the token field above first.';
+    box.style.display = 'none';
+    return;
+  }
 
   box.style.display = 'none';
   placeholder.style.display = 'flex';

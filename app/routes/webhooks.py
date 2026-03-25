@@ -573,6 +573,10 @@ async def telegram_get_me(x_internal_token: str = Header(None)):
     import httpx
     try:
         me = httpx.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10.0).json()
+        if not me.get("ok"):
+            raise HTTPException(400, f"Bot token is invalid or revoked: {me.get('description', 'unknown error')}. Go to @BotFather on Telegram, run /revoke to get a new token, then update TELEGRAM_BOT_TOKEN in Railway.")
+        # Delete any existing webhook so getUpdates works (Telegram blocks getUpdates when webhook is active)
+        httpx.post(f"https://api.telegram.org/bot{token}/deleteWebhook", timeout=10.0)
         updates = httpx.get(f"https://api.telegram.org/bot{token}/getUpdates", timeout=10.0).json()
         chat_ids = []
         for u in updates.get("result", []):
@@ -590,8 +594,14 @@ async def telegram_get_me(x_internal_token: str = Header(None)):
         return {
             "bot": me.get("result", {}),
             "chat_ids_found": unique,
-            "note": "Set TELEGRAM_CEO_CHAT_ID in Railway to your chat_id from the list above.",
+            "note": (
+                "Copy your chat_id above and set TELEGRAM_CEO_CHAT_ID in Railway. "
+                "Then click 'Register Webhook' to reconnect. "
+                "If no chat IDs appear, open Telegram and send any message to your bot first, then try again."
+            ),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"Telegram API error: {e}")
 
