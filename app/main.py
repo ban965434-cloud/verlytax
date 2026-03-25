@@ -967,7 +967,7 @@ async def daily_brief():
         LoadStatus.DELIVERED, LoadStatus.INVOICED, LoadStatus.PAID
     )]
     paid_week = [l for l in recent_loads if l.status == LoadStatus.PAID]
-    revenue_collected = sum(l.fee_collected_cents or 0 for l in paid_week) / 100
+    revenue_collected = sum(l.verlytax_fee or 0 for l in paid_week)
 
     expiring_soon = [
         c for c in active_carriers

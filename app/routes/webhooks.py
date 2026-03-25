@@ -123,7 +123,7 @@ async def _handle_ceo_command(command: str) -> tuple[bool, str]:
         delivered = [l for l in recent_loads if l.status in (
             LoadStatus.DELIVERED, LoadStatus.INVOICED, LoadStatus.PAID
         )]
-        revenue = sum(l.fee_collected_cents or 0 for l in recent_loads if l.status == LoadStatus.PAID) / 100
+        revenue = sum(l.verlytax_fee or 0 for l in recent_loads if l.status == LoadStatus.PAID)
 
         msg = (
             f"BRIEF — {now.strftime('%a %b %d %H:%M UTC')}\n"
