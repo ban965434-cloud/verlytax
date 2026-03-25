@@ -82,7 +82,7 @@ async def _handle_ceo_command(command: str) -> tuple[bool, str]:
                 select(Load).where(Load.status == LoadStatus.IN_TRANSIT)
             )).scalars().all()
             open_esc = (await session.execute(
-                select(EscalationLog).where(EscalationLog.resolved == False)
+                select(EscalationLog).where(EscalationLog.status != "resolved")
             )).scalars().all()
             halt_rule = (await session.execute(
                 select(AutomationRule).where(AutomationRule.rule_key == "system_halt")
@@ -116,7 +116,7 @@ async def _handle_ceo_command(command: str) -> tuple[bool, str]:
                 select(Load).where(Load.created_at >= week_ago)
             )).scalars().all()
             open_esc = (await session.execute(
-                select(EscalationLog).where(EscalationLog.resolved == False)
+                select(EscalationLog).where(EscalationLog.status != "resolved")
             )).scalars().all()
 
         in_transit = [l for l in recent_loads if l.status == LoadStatus.IN_TRANSIT]

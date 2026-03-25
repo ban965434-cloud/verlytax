@@ -951,7 +951,7 @@ async def daily_brief():
 
         from app.db import EscalationLog
         esc_result = await session.execute(
-            select(EscalationLog).where(EscalationLog.resolved == False)
+            select(EscalationLog).where(EscalationLog.status != "resolved")
         )
         open_escalations = esc_result.scalars().all()
 
@@ -971,7 +971,7 @@ async def daily_brief():
 
     expiring_soon = [
         c for c in active_carriers
-        if c.coi_expiry_date and (c.coi_expiry_date - now.date()).days <= 30
+        if c.coi_expiry and (c.coi_expiry - now).days <= 30
     ]
 
     lines = [
@@ -1230,12 +1230,12 @@ async def dashboard():
 
 @app.get("/about", response_class=HTMLResponse)
 async def about():
-    """ClearRoute Dispatch public about page — PAS formula, trust badges, FAQs."""
+    """Verlytax Dispatch public about page — PAS formula, trust badges, FAQs."""
     path = os.path.join(static_dir, "about.html")
     if os.path.exists(path):
         with open(path) as f:
             return f.read()
-    return HTMLResponse("<h1>About ClearRoute Dispatch</h1>")
+    return HTMLResponse("<h1>About Verlytax Dispatch</h1>")
 
 
 @app.get("/carrier-packet", response_class=HTMLResponse)
@@ -1245,7 +1245,7 @@ async def carrier_packet():
     if os.path.exists(path):
         with open(path) as f:
             return f.read()
-    return HTMLResponse("<h1>ClearRoute Carrier Packet</h1>")
+    return HTMLResponse("<h1>Verlytax Carrier Packet</h1>")
 
 
 @app.get("/shipper-broker-packet", response_class=HTMLResponse)
@@ -1255,7 +1255,7 @@ async def shipper_broker_packet():
     if os.path.exists(path):
         with open(path) as f:
             return f.read()
-    return HTMLResponse("<h1>ClearRoute Broker Packet</h1>")
+    return HTMLResponse("<h1>Verlytax Broker Packet</h1>")
 
 
 class ErinChatRequest(BaseModel):
