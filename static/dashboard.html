@@ -1152,6 +1152,22 @@
       <div style="font-size:0.68rem;color:var(--muted);margin-top:4px">Stored in sessionStorage only — never sent anywhere except your own server.</div>
     </div>
 
+    <!-- Telegram Setup -->
+    <div class="brain-section">
+      <div class="brain-section-title">✈ Telegram Setup</div>
+      <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:12px;line-height:1.5">
+        Connect Telegram as a parallel or fallback channel to Twilio. One-time setup — requires INTERNAL_TOKEN above.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="wf-btn" onclick="telegramFindChatId()">🔍 Find My Chat ID</button>
+        <button class="wf-btn wf-btn-alt" onclick="telegramRegisterWebhook()">🔗 Register Webhook</button>
+      </div>
+      <div id="telegramSetupResult" style="margin-top:12px;font-size:0.78rem;color:var(--muted);background:var(--glass);border:1px solid var(--border);border-radius:8px;padding:12px;display:none;line-height:1.6"></div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-top:8px">
+        Step 1: Message your Nova bot on Telegram → Step 2: Click "Find My Chat ID" → Step 3: Set TELEGRAM_CEO_CHAT_ID in Railway → Step 4: Click "Register Webhook"
+      </div>
+    </div>
+
   <!-- Cora Compliance Panel -->
   <div class="brain-panel hidden" id="coraPanel">
 
@@ -1513,6 +1529,54 @@ function saveToken(val) {
   sessionStorage.setItem('verlytax_token', val.trim());
   const status = document.getElementById('tokenStatus');
   if (status) status.textContent = val.trim() ? '✓ Saved' : '';
+}
+
+async function telegramFindChatId() {
+  const token = getToken();
+  const out = document.getElementById('telegramSetupResult');
+  out.style.display = 'block';
+  out.textContent = 'Querying Telegram for pending messages…';
+  try {
+    const r = await fetch('/webhooks/telegram/me', {
+      headers: {'x-internal-token': token}
+    });
+    const d = await r.json();
+    if (r.ok) {
+      const ids = d.chat_ids_found || [];
+      if (ids.length === 0) {
+        out.innerHTML = '⚠️ No chat IDs found.<br>Open Telegram, send any message to your Nova bot, then click this button again.';
+      } else {
+        const rows = ids.map(c =>
+          `<strong>${c.chat_id}</strong> — ${c.name || 'unknown'} (${c.type})`
+        ).join('<br>');
+        out.innerHTML = `✅ Chat IDs found:<br>${rows}<br><br>Copy your personal <strong>chat_id</strong> and set <code>TELEGRAM_CEO_CHAT_ID</code> in Railway. Then click "Register Webhook".`;
+      }
+    } else {
+      out.textContent = '❌ ' + (d.detail || 'Check your INTERNAL_TOKEN is entered above.');
+    }
+  } catch(e) {
+    out.textContent = '❌ Request failed: ' + e.message;
+  }
+}
+
+async function telegramRegisterWebhook() {
+  const token = getToken();
+  const out = document.getElementById('telegramSetupResult');
+  out.style.display = 'block';
+  out.textContent = 'Registering webhook with Telegram…';
+  try {
+    const r = await fetch('/webhooks/telegram/setup', {
+      headers: {'x-internal-token': token}
+    });
+    const d = await r.json();
+    if (r.ok && d.status === 'done') {
+      out.innerHTML = `✅ Webhook registered!<br>URL: <code>${d.webhook_url}</code><br><br>Telegram is now connected. Send a message to your Nova bot to test it.`;
+    } else {
+      out.innerHTML = '❌ ' + (d.detail || JSON.stringify(d));
+    }
+  } catch(e) {
+    out.textContent = '❌ Request failed: ' + e.message;
+  }
 }
 
 function useQuickAction(text) {
