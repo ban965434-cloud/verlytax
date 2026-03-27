@@ -8,13 +8,14 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.db import init_db, AsyncSessionLocal, Carrier, Load, CarrierStatus, LoadStatus, AutomationRule, AutomationLog, AgentMemory, ComplianceAudit, SupportTicket
-from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya, compliance, support, nova
+from app.routes import onboarding, billing, escalation, webhooks, carriers, brain, agents, workflows, mya, compliance, support, nova, auth
+from app.routes.auth import verify_session
 from app.services import nova_alert_ceo, nova_sms, charge_carrier_fee, calculate_fee, erin_respond, fmcsa_lookup, log_automation, store_memory, run_agent
 
 from sqlalchemy import select
@@ -1216,11 +1217,26 @@ app.include_router(mya.router, prefix="/mya", tags=["Mya"])
 app.include_router(compliance.router, prefix="/compliance", tags=["Compliance"])
 app.include_router(support.router, prefix="/support", tags=["Support"])
 app.include_router(nova.router, prefix="/nova", tags=["Nova"])
+app.include_router(auth.router, prefix="/auth", tags=["Auth"])
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Serve the CEO login page. Redirects to dashboard if already signed in."""
+    if verify_session(request.cookies.get("vx_session")):
+        return RedirectResponse("/", status_code=302)
+    path = os.path.join(static_dir, "login.html")
+    if os.path.exists(path):
+        with open(path) as f:
+            return f.read()
+    return HTMLResponse("<form method='POST' action='/auth/login'><input name='username'><input name='password' type='password'><button>Login</button></form>")
 
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard():
-    """Serve the Verlytax operations dashboard."""
+async def dashboard(request: Request):
+    """Serve the Verlytax operations dashboard — CEO-only, requires active session."""
+    if not verify_session(request.cookies.get("vx_session")):
+        return RedirectResponse("/login", status_code=302)
     dashboard_path = os.path.join(static_dir, "dashboard.html")
     if os.path.exists(dashboard_path):
         with open(dashboard_path) as f:
